@@ -1,6 +1,8 @@
 # learn-agent-design
 记录自己学习理解Agent架构的历程及感受
 
+主要研究Claude code 相关的3个开源项目，使用claude code下载repo并让cc帮我生成一个html的可交互版本的学习指南。
+
 ## 学习的开源项目及我的学习指南
 
 | # | 原始项目 | 我的学习指南 |
