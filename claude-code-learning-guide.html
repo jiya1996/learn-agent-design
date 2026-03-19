@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code 全功能交互式学习指南</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--bg4:#21283b;
+  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+  --accent:#58a6ff;--accent2:#3fb950;--accent3:#f0883e;--accent4:#f778ba;
+  --red:#f85149;--green:#3fb950;--yellow:#d29922;--purple:#bc8cff;
+  --border:#30363d;--border2:#21262d;
+  --code-bg:#0d1117;--card:#161b22;
+  --sidebar-w:280px;--topbar-h:52px;
+}
+html{scroll-behavior:smooth;font-size:15px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+/* Top Progress Bar */
+#topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--bg2);border-bottom:1px solid var(--border);z-index:1000;display:flex;align-items:center;padding:0 24px}
+#topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent);white-space:nowrap}
+#topbar .logo span{color:var(--text)}
+#progress-wrap{flex:1;margin:0 24px;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden}
+#progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px;transition:width .4s ease}
+#progress-text{font-size:.85rem;color:var(--text2);white-space:nowrap;min-width:60px;text-align:right}
+#menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;margin-right:12px}
+
+/* Sidebar */
+#sidebar{position:fixed;top:var(--topbar-h);left:0;width:var(--sidebar-w);height:calc(100vh - var(--topbar-h));background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;z-index:900;padding:16px 0;transition:transform .3s ease}
+#sidebar::-webkit-scrollbar{width:4px}#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.nav-section{padding:8px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:12px}
+.nav-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:all .2s;font-size:.9rem;color:var(--text2);gap:10px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{border-left-color:var(--accent);color:var(--accent);background:rgba(88,166,255,.08)}
+.nav-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.7rem;font-weight:700;background:var(--bg4);color:var(--text3);flex-shrink:0}
+.nav-item.active .nav-num{background:var(--accent);color:var(--bg)}
+.nav-item.done .nav-num{background:var(--green);color:var(--bg)}
+.nav-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-check{font-size:.9rem;color:var(--green);opacity:0;transition:opacity .2s}.nav-item.done .nav-check{opacity:1}
+
+/* Main Content */
+#main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);padding:32px 40px 80px;max-width:960px}
+
+/* Section */
+.section{margin-bottom:64px;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
+.section.visible{opacity:1;transform:none}
+.section-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+.section-num{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-title{font-size:1.6rem;font-weight:700}
+.section-subtitle{font-size:.95rem;color:var(--text2);margin-top:2px}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.card-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .icon{font-size:1.2rem}
+
+/* Concept Card */
+.concept-card{background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(188,140,255,.08));border:1px solid rgba(88,166,255,.2);border-radius:12px;padding:20px 24px;margin-bottom:20px;font-size:1.05rem}
+.concept-card::before{content:'💡 一句话概念';display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px;font-weight:600}
+
+/* Code Block */
+.code-wrap{position:relative;margin:12px 0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--bg4);font-size:.75rem;color:var(--text3)}
+.code-lang{font-weight:600;text-transform:uppercase}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;transition:all .2s}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+.copy-btn.copied{color:var(--green);border-color:var(--green)}
+pre{margin:0;padding:16px;background:var(--code-bg);overflow-x:auto;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace}
+pre code{color:var(--text)}
+
+/* Inline code */
+p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--accent3)}
+
+/* Accordion */
+.accordion{border:1px solid var(--border);border-radius:8px;margin:12px 0;overflow:hidden}
+.acc-header{display:flex;align-items:center;padding:12px 16px;background:var(--bg3);cursor:pointer;user-select:none;gap:8px;font-weight:600;font-size:.95rem;transition:background .2s}
+.acc-header:hover{background:var(--bg4)}
+.acc-arrow{transition:transform .3s;font-size:.7rem;color:var(--text3)}
+.acc-header.open .acc-arrow{transform:rotate(90deg)}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.acc-body.open{max-height:3000px}
+.acc-content{padding:16px}
+
+/* Do / Don't */
+.do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.do-card,.dont-card{border-radius:10px;padding:16px 20px}
+.do-card{background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.25)}
+.dont-card{background:rgba(248,81,73,.06);border:1px solid rgba(248,81,73,.25)}
+.do-card::before{content:'✅ Do';font-weight:700;color:var(--green);display:block;margin-bottom:8px;font-size:.9rem}
+.dont-card::before{content:'❌ Don\'t';font-weight:700;color:var(--red);display:block;margin-bottom:8px;font-size:.9rem}
+.do-card li,.dont-card li{font-size:.9rem;margin-bottom:4px;color:var(--text2)}
+
+/* Warning Box */
+.warning-box{background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.3);border-left:4px solid var(--yellow);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.warning-box::before{content:'⚠️ 注意';display:block;font-weight:700;color:var(--yellow);margin-bottom:4px;font-size:.85rem}
+
+/* Tip Box */
+.tip-box{background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.2);border-left:4px solid var(--green);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.tip-box::before{content:'💡 提示';display:block;font-weight:700;color:var(--green);margin-bottom:4px;font-size:.85rem}
+
+/* Prompt Template */
+.prompt-tpl{background:linear-gradient(135deg,rgba(247,120,186,.06),rgba(188,140,255,.06));border:1px solid rgba(247,120,186,.2);border-radius:10px;padding:16px 20px;margin:12px 0}
+.prompt-tpl::before{content:'🎯 实战 Prompt 模板';display:block;font-weight:700;color:var(--accent4);margin-bottom:8px;font-size:.85rem}
+
+/* Flow Chart */
+.flow{display:flex;align-items:center;gap:0;margin:20px 0;flex-wrap:wrap;justify-content:center}
+.flow-step{background:linear-gradient(135deg,var(--bg3),var(--bg4));border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;min-width:120px;position:relative}
+.flow-step .step-title{font-weight:700;font-size:.95rem;margin-bottom:4px}
+.flow-step .step-desc{font-size:.78rem;color:var(--text2)}
+.flow-arrow{font-size:1.3rem;color:var(--accent);margin:0 4px;flex-shrink:0}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{background:var(--bg3);text-align:left;padding:10px 14px;border:1px solid var(--border);font-weight:600;color:var(--accent);white-space:nowrap}
+td{padding:10px 14px;border:1px solid var(--border);color:var(--text2)}
+tr:hover td{background:rgba(88,166,255,.04)}
+
+/* Checkbox */
+.learn-check{display:flex;align-items:center;gap:10px;margin-top:24px;padding:12px 16px;background:var(--bg3);border-radius:8px;cursor:pointer;user-select:none;transition:background .2s}
+.learn-check:hover{background:var(--bg4)}
+.learn-check input{display:none}
+.check-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.learn-check input:checked~.check-box{background:var(--green);border-color:var(--green)}
+.learn-check input:checked~.check-box::after{content:'✓';color:var(--bg);font-weight:700;font-size:.8rem}
+.learn-check .check-label{font-weight:600;font-size:.95rem}
+
+/* Quick Reference */
+#quickref{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;margin-top:48px}
+#quickref h2{font-size:1.4rem;margin-bottom:20px;text-align:center;background:linear-gradient(90deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.qr-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:.85rem}
+.qr-cmd{font-family:'Cascadia Code',Consolas,monospace;color:var(--accent);font-weight:600;min-width:100px}
+.qr-desc{color:var(--text2)}
+
+/* Responsive */
+@media(max-width:900px){
+  #menu-toggle{display:block}
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #main{margin-left:0;padding:24px 16px 80px}
+  .do-dont{grid-template-columns:1fr}
+  .flow{flex-direction:column}
+  .flow-arrow{transform:rotate(90deg)}
+}
+
+/* Lists */
+ul,ol{padding-left:20px;margin:8px 0}
+li{margin-bottom:4px;color:var(--text2)}
+li strong{color:var(--text)}
+
+/* Paragraphs */
+p{margin:8px 0;color:var(--text2)}
+
+/* Sub-headings in sections */
+h3{font-size:1.15rem;margin:24px 0 12px;color:var(--text);border-left:3px solid var(--accent);padding-left:12px}
+h4{font-size:1rem;margin:16px 0 8px;color:var(--text)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Overlay for mobile sidebar */
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:899}
+#sidebar-overlay.show{display:block}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header id="topbar">
+  <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="logo">Claude Code <span>学习指南</span></div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="progress-text">0%</div>
+</header>
+
+<!-- Sidebar Overlay (mobile) -->
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="nav-section">核心学习路径</div>
+  <div class="nav-item" data-target="s1" onclick="navTo('s1')"><span class="nav-num">1</span><span class="nav-label">Prompt Engineering 提示工程</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s2" onclick="navTo('s2')"><span class="nav-num">2</span><span class="nav-label">CLAUDE.md 项目记忆</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s3" onclick="navTo('s3')"><span class="nav-num">3</span><span class="nav-label">命令大全 Commands</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s4" onclick="navTo('s4')"><span class="nav-num">4</span><span class="nav-label">Claude Skills 技能系统</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s5" onclick="navTo('s5')"><span class="nav-num">5</span><span class="nav-label">Memory 记忆系统</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s6" onclick="navTo('s6')"><span class="nav-num">6</span><span class="nav-label">Fast Mode 快速模式</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s7" onclick="navTo('s7')"><span class="nav-num">7</span><span class="nav-label">多窗口 Git Worktree</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s8" onclick="navTo('s8')"><span class="nav-num">8</span><span class="nav-label">Subagent 子代理编排</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s9" onclick="navTo('s9')"><span class="nav-num">9</span><span class="nav-label">Agent Teams 团队协作</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s10" onclick="navTo('s10')"><span class="nav-num">10</span><span class="nav-label">Hooks + MCP 进阶</span><span class="nav-check">✓</span></div>
+
+  <div class="nav-section">附加模块</div>
+  <div class="nav-item" data-target="s11" onclick="navTo('s11')"><span class="nav-num">+</span><span class="nav-label">模型选择指南</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s12" onclick="navTo('s12')"><span class="nav-num">+</span><span class="nav-label">Token 与用量管理</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="s13" onclick="navTo('s13')"><span class="nav-num">!</span><span class="nav-label">新手常见错误汇总</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="quickref" onclick="navTo('quickref')"><span class="nav-num">⌘</span><span class="nav-label">命令速查表</span><span class="nav-check">✓</span></div>
+</nav>
+
+<!-- Main Content -->
+<main id="main">
+
+<!-- ==================== Section 1: Prompt Engineering ==================== -->
+<section class="section" id="s1">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <div><div class="section-title">Prompt Engineering 提示工程</div>
+    <div class="section-subtitle">掌握与 Claude Code 高效协作的核心方法论</div></div>
+  </div>
+
+  <div class="concept-card">Claude Code 的核心工作流是 <strong>Explore → Plan → Code → Commit</strong>，先研究再规划再编码再提交。研究和规划阶段越充分，代码质量越高。</div>
+
+  <h3>工作流 1：Explore → Plan → Code → Commit</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="step-title">🔍 Explore</div><div class="step-desc">阅读文件/图片/URL<br>用子代理验证<br>此阶段不写代码</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">📋 Plan</div><div class="step-desc">让 Claude 制定计划<br>使用 think/ultrathink<br>保存计划以供参考</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">💻 Code</div><div class="step-desc">实现解决方案<br>边写边验证<br>分步骤推进</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">✅ Commit</div><div class="step-desc">提交结果<br>创建 PR<br>更新文档</div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> think 思考模式详解</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>在 Plan 阶段，你可以使用以下关键词增加 Claude 的推理深度：</p>
+      <ul>
+        <li><code>"think"</code> — 基础思考，适合简单问题</li>
+        <li><code>"think hard"</code> — 深度思考，适合中等复杂度</li>
+        <li><code>"think harder"</code> — 更深层推理</li>
+        <li><code>"ultrathink"</code> — 最大计算深度，适合复杂架构决策</li>
+      </ul>
+      <div class="tip-box">推理深度越高，消耗的 token 越多，但对复杂问题的解决质量提升显著。</div>
+    </div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> Plan Mode vs Accept Edits Mode</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>Claude Code 有两个默认模式，可用 <code>Shift + Tab</code> 切换：</p>
+      <ul>
+        <li><strong>Plan Mode（规划模式）</strong> — Claude 只分析和规划，不直接修改代码</li>
+        <li><strong>Accept Edits Mode（接受编辑模式）</strong> — Claude 可以直接编辑你的文件</li>
+      </ul>
+      <div class="warning-box">对于复杂任务，建议先在 Plan Mode 下规划，确认方案后再切换到 Accept Edits Mode 执行。</div>
+    </div></div>
+  </div>
+
+  <h3>工作流 2：测试驱动开发 (TDD)</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="step-title">📝 写测试</div><div class="step-desc">基于预期输入输出<br>标记为 TDD</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">❌ 运行失败</div><div class="step-desc">确认测试失败<br>暂不写实现</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">📦 提交测试</div><div class="step-desc">满意后提交<br>锁定测试</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">💻 写代码</div><div class="step-desc">实现以通过测试<br>用子代理验证</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">✅ 提交代码</div><div class="step-desc">所有测试通过<br>最终提交</div></div>
+  </div>
+  <div class="tip-box">明确的目标（测试、mock）能显著提升迭代效率。</div>
+
+  <h3>工作流 3：视觉迭代法</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="step-title">🖼️ 提供截图</div><div class="step-desc">提供设计稿或截图</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">💻 实现代码</div><div class="step-desc">编写 UI 代码</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">📸 截图对比</div><div class="step-desc">截图并与设计稿对比</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">🔄 迭代</div><div class="step-desc">通常 2-3 轮即可</div></div>
+  </div>
+
+  <div class="prompt-tpl">
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">Prompt</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code>分析 src/ 目录下的所有文件，理解当前项目结构。
+不要写任何代码，只做探索。
+
+然后请 ultrathink，制定一个详细的重构计划，
+包括：
+1. 需要修改的文件列表
+2. 每个文件的具体修改内容
+3. 修改顺序和依赖关系
+4. 潜在风险和回退方案</code></pre></div>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s1" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Prompt Engineering</span></label>
+</section>
+
+<!-- ==================== Section 2: CLAUDE.md ==================== -->
+<section class="section" id="s2">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <div><div class="section-title">CLAUDE.md 项目记忆</div>
+    <div class="section-subtitle">让 Claude 记住你的项目规范和偏好</div></div>
+  </div>
+
+  <div class="concept-card">CLAUDE.md 是 Claude Code 的项目级记忆文件，每次对话都会自动加载。用 <code>/init</code> 命令创建，持续迭代优化内容是关键。</div>
+
+  <h3>创建 CLAUDE.md</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 在 Claude Code 中运行
+/init
+
+# 这将在项目根目录自动创建 CLAUDE.md</code></pre></div>
+
+  <h3>应该写什么内容</h3>
+  <div class="card">
+    <ul>
+      <li><strong>项目技术栈</strong> — 使用的语言、框架、工具链</li>
+      <li><strong>编码规范</strong> — 命名风格、代码格式化工具、lint 规则</li>
+      <li><strong>项目结构</strong> — 目录含义、关键文件说明</li>
+      <li><strong>常用命令</strong> — 构建、测试、部署命令</li>
+      <li><strong>偏好设置</strong> — 你希望 Claude 遵循的具体约定</li>
+      <li><strong>当前上下文</strong> — 正在开发的功能、已知 bug 等</li>
+    </ul>
+  </div>
+
+  <h3>层级结构</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>位置</th><th>作用范围</th><th>适用场景</th></tr>
+    <tr><td><code>项目根目录/CLAUDE.md</code></td><td>整个项目</td><td>项目通用规范</td></tr>
+    <tr><td><code>子目录/CLAUDE.md</code></td><td>该子目录</td><td>模块特定规则</td></tr>
+    <tr><td><code>~/.claude/CLAUDE.md</code></td><td>所有项目</td><td>个人通用偏好</td></tr>
+  </table></div>
+
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>经常回顾和迭代 CLAUDE.md 内容</li>
+      <li>保持简洁精炼，像优化 prompt 一样优化它</li>
+      <li>加入具体示例帮助 Claude 理解</li>
+      <li>记录测试/构建命令方便自动化</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>一次性写入大量内容后不再更新</li>
+      <li>加入无关或过时的信息</li>
+      <li>把 CLAUDE.md 当成项目文档</li>
+      <li>忘记提交到版本控制</li>
+    </ul></div>
+  </div>
+
+  <div class="warning-box">最常见的错误：<strong>写了很多内容但从不迭代优化</strong>。CLAUDE.md 应该像频繁使用的 prompt 一样不断打磨，实验什么指令对模型最有效。</div>
+
+  <div class="prompt-tpl">
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">Prompt</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code>/init
+
+# 创建后立刻编辑 CLAUDE.md，添加：
+# 1. 项目技术栈说明
+# 2. 编码规范（变量命名、文件组织等）
+# 3. 常用命令（npm run dev / test / build）
+# 4. 你的个人偏好（中文注释、使用 TypeScript 等）</code></pre></div>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s2" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 CLAUDE.md 项目记忆</span></label>
+</section>
+
+<!-- ==================== Section 3: Commands ==================== -->
+<section class="section" id="s3">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <div><div class="section-title">命令大全 Commands</div>
+    <div class="section-subtitle">掌握 20+ 内置命令，效率翻倍</div></div>
+  </div>
+
+  <div class="concept-card">Claude Code 提供丰富的内置斜杠命令，输入 <code>/</code> 即可看到自动补全列表。这些命令涵盖会话管理、模型切换、调试诊断等核心功能。</div>
+
+  <h3>内置命令速览</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>命令</th><th>用途</th></tr>
+    <tr><td><code>/init</code></td><td>初始化项目，创建 CLAUDE.md 引导文件</td></tr>
+    <tr><td><code>/compact [说明]</code></td><td>压缩对话历史，可选指定保留重点</td></tr>
+    <tr><td><code>/cost</code></td><td>显示当前 Token 使用量统计</td></tr>
+    <tr><td><code>/model</code></td><td>切换 AI 模型（Opus 4.6 / Sonnet 4.5 / Haiku 4.5）</td></tr>
+    <tr><td><code>/fast</code></td><td>切换 Fast Mode（Opus 4.6 2.5 倍速度，6 倍价格）</td></tr>
+    <tr><td><code>/clear</code></td><td>清空对话历史</td></tr>
+    <tr><td><code>/memory</code></td><td>编辑 CLAUDE.md 记忆文件</td></tr>
+    <tr><td><code>/review</code></td><td>请求代码审查</td></tr>
+    <tr><td><code>/debug</code></td><td>排查当前会话和配置问题（2026 新增）</td></tr>
+    <tr><td><code>/teleport</code></td><td>将会话发送到 claude.ai/code 网页端（2026 新增）</td></tr>
+    <tr><td><code>/rename</code></td><td>自动生成会话描述名（2026 新增）</td></tr>
+    <tr><td><code>/hooks</code></td><td>交互式配置 Hooks（2026 新增）</td></tr>
+    <tr><td><code>/auth login</code></td><td>登录 Anthropic 账号（2026 新增）</td></tr>
+    <tr><td><code>/auth status</code></td><td>查看认证状态</td></tr>
+    <tr><td><code>/add-dir</code></td><td>添加额外工作目录</td></tr>
+    <tr><td><code>/agents</code></td><td>管理自定义 AI 子代理</td></tr>
+    <tr><td><code>/mcp</code></td><td>管理 MCP 服务器连接</td></tr>
+    <tr><td><code>/permissions</code></td><td>查看/更新权限设置</td></tr>
+    <tr><td><code>/pr_comments</code></td><td>查看 Pull Request 评论</td></tr>
+    <tr><td><code>/config</code></td><td>查看/修改配置</td></tr>
+    <tr><td><code>/doctor</code></td><td>检查 Claude Code 安装健康状况</td></tr>
+    <tr><td><code>/bug</code></td><td>报告 Bug（发送对话到 Anthropic）</td></tr>
+    <tr><td><code>/help</code></td><td>获取使用帮助</td></tr>
+    <tr><td><code>/vim</code></td><td>进入 Vim 模式</td></tr>
+    <tr><td><code>/status</code></td><td>查看账号和系统状态</td></tr>
+  </table></div>
+
+  <h3>自定义斜杠命令</h3>
+  <p>你可以将常用的 Prompt 保存为 Markdown 文件，变成可复用的斜杠命令：</p>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 创建命令目录
+mkdir -p .claude/commands
+
+# 创建自定义命令文件
+# 文件名就是命令名：optimize.md → /optimize
+echo "分析代码的性能问题并给出优化建议：" > .claude/commands/optimize.md</code></pre></div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 自定义命令示例：pull-request.md</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code># Create Pull Request Command
+
+Create a new branch, commit changes, and submit a pull request.
+
+## Behavior
+- Creates a new branch based on current changes
+- Formats modified files using Biome
+- Analyzes changes and automatically splits into logical commits
+- Each commit focuses on a single logical change or feature
+- Creates descriptive commit messages for each logical unit
+- Pushes branch to remote
+- Creates pull request with proper summary and test plan
+
+## Guidelines for Automatic Commit Splitting
+- Split commits by feature, component, or concern
+- Keep related file changes together in the same commit
+- Separate refactoring from feature additions
+- Ensure each commit can be understood independently</code></pre></div>
+    </div></div>
+  </div>
+
+  <div class="tip-box">输入 <code>/</code> 可看到所有可用命令的自动补全列表，包括内置和自定义命令。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s3" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会命令大全</span></label>
+</section>
+
+<!-- ==================== Section 4: Claude Skills ==================== -->
+<section class="section" id="s4">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <div><div class="section-title">Claude Skills 技能系统</div>
+    <div class="section-subtitle">将复杂工作流封装为可复用的斜杠命令</div></div>
+  </div>
+
+  <div class="concept-card">Skills（技能）= 自定义斜杠命令。将 Markdown 文件放入 <code>.claude/commands/</code> 目录，即可用 <code>/技能名</code> 随时调用。它们是"AI 的宏"——定义一次，反复使用。</div>
+
+  <h3>快速上手（3 分钟）</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 1. 创建技能目录
+mkdir -p .claude/commands
+
+# 2. 创建一个简单的技能文件
+cat > .claude/commands/analyze.md << 'EOF'
+# Code Analysis
+
+Analyze the current code for:
+- Potential bugs and edge cases
+- Performance optimizations
+- Code quality improvements
+- Security vulnerabilities
+
+Provide specific, actionable recommendations.
+EOF
+
+# 3. 在 Claude Code 中使用
+# 输入: /analyze</code></pre></div>
+
+  <h3>7 个预置技能详解</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>技能</th><th>类型</th><th>功能描述</th></tr>
+    <tr><td><code>/pr</code></td><td>工作流</td><td>自动创建分支、拆分 commit、推送并创建 Pull Request</td></tr>
+    <tr><td><code>/tdd</code></td><td>工作流</td><td>严格的 Red-Green-Refactor 测试驱动开发周期</td></tr>
+    <tr><td><code>/review</code></td><td>质量</td><td>六角色代码审查（PM、Dev、QA、安全、DevOps、UX）</td></tr>
+    <tr><td><code>/test</code></td><td>质量</td><td>单元测试最佳实践清单</td></tr>
+    <tr><td><code>/five</code></td><td>方法论</td><td>五个为什么根因分析法</td></tr>
+    <tr><td><code>/ux</code></td><td>角色</td><td>UX 设计师人格，以用户为中心的设计</td></tr>
+    <tr><td><code>/todo</code></td><td>任务管理</td><td>管理 todos.md 任务列表，支持到期日排序</td></tr>
+  </table></div>
+
+  <h3>技能组合工作流</h3>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 完整功能开发流程</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">workflow</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>/tdd          # 测试驱动开发 → Red-Green-Refactor
+/test         # 验证测试覆盖率和质量
+/pr           # 创建分支、提交、开 PR
+/review       # 多角度代码审查（可选）</code></pre></div>
+    </div></div>
+  </div>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> Bug 调查与修复流程</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">workflow</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>/five         # 五个为什么分析根因
+/tdd          # 用 TDD 方式修复
+/test         # 确保所有测试通过
+/pr           # 提交 PR</code></pre></div>
+    </div></div>
+  </div>
+
+  <h3>创建自定义技能</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>要素</th><th>要求</th></tr>
+    <tr><td>文件扩展名</td><td>必须是 <code>.md</code></td></tr>
+    <tr><td>编码</td><td>UTF-8（不支持 UTF-16）</td></tr>
+    <tr><td>命名规范</td><td>小写 + 连字符: <code>my-skill.md</code> → <code>/my-skill</code></td></tr>
+    <tr><td>项目级</td><td><code>.claude/commands/</code>（团队共享，推荐）</td></tr>
+    <tr><td>全局级</td><td><code>~/.claude/commands/</code>（所有项目可用）</td></tr>
+    <tr><td>优先级</td><td>项目级 > 全局级（同名时项目级生效）</td></tr>
+  </table></div>
+
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>每个技能聚焦一个工作流</li>
+      <li>用描述性命名: <code>create-api-endpoint.md</code></li>
+      <li>包含示例输入/输出</li>
+      <li>提交到版本控制与团队共享</li>
+      <li>从简单技能开始，逐步复杂化</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>一个技能做 10 件事</li>
+      <li>使用模糊指令: "让它更好"</li>
+      <li>硬编码项目路径</li>
+      <li>运行未审查的第三方技能</li>
+      <li>忘记测试边缘情况</li>
+    </ul></div>
+  </div>
+
+  <div class="warning-box">技能拥有完整的代码库访问权限，可以运行任意命令。<strong>只使用可信来源的技能</strong>，克隆仓库后务必审查 <code>.claude/commands/</code> 目录。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s4" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Claude Skills 技能系统</span></label>
+</section>
+
+<!-- ==================== Section 5: Memory ==================== -->
+<section class="section" id="s5">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <div><div class="section-title">Memory 记忆系统</div>
+    <div class="section-subtitle">两种记忆方案：内置 /memory 命令 vs MCP Memory Server</div></div>
+  </div>
+
+  <div class="concept-card">Claude Code 有两套记忆方案：内置的 <code>/memory</code> 命令编辑 CLAUDE.md 文件，以及 MCP Memory Server 提供跨会话持久记忆。两者可以互补使用。</div>
+
+  <h3>方案对比</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>特性</th><th>/memory 命令</th><th>MCP Memory Server</th></tr>
+    <tr><td>原理</td><td>编辑 CLAUDE.md 文件</td><td>独立的 MCP 服务器存储</td></tr>
+    <tr><td>持久化</td><td>文件系统（随项目）</td><td>跨会话持久存储</td></tr>
+    <tr><td>范围</td><td>项目级</td><td>全局或项目级可选</td></tr>
+    <tr><td>安装</td><td>内置，无需安装</td><td>需要安装 MCP 服务器</td></tr>
+    <tr><td>用途</td><td>项目规范、编码约定</td><td>用户偏好、跨项目记忆</td></tr>
+    <tr><td>版本控制</td><td>可提交到 Git</td><td>独立存储，不进入 Git</td></tr>
+  </table></div>
+
+  <h3>安装 MCP Memory Server</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 全局安装（推荐：跨项目持久记忆）
+claude mcp add memory -s user -- npx -y @modelcontextprotocol/server-memory
+
+# 项目级安装（项目隔离记忆）
+claude mcp add memory -s local -- npx -y @modelcontextprotocol/server-memory
+
+# 验证安装
+claude mcp list
+# 期望输出: memory: npx -y @modelcontextprotocol/server-memory - ✓ Connected</code></pre></div>
+
+  <h3>使用场景</h3>
+  <div class="card">
+    <ul>
+      <li><strong>记住项目编码规范</strong> — "记住当前项目使用 TypeScript"</li>
+      <li><strong>存储常用配置</strong> — "记住我偏好使用 pnpm 而不是 npm"</li>
+      <li><strong>维护任务上下文</strong> — "记住我们正在重构认证模块"</li>
+      <li><strong>跟踪决策记录</strong> — "记住上次会议决定使用 PostgreSQL"</li>
+    </ul>
+  </div>
+
+  <div class="tip-box">全局安装允许所有项目共享记忆，项目级安装则将记忆隔离在单个项目中。建议：全局装一个用于通用偏好，重要项目再装项目级的。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s5" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Memory 记忆系统</span></label>
+</section>
+
+<!-- ==================== Section 6: Fast Mode ==================== -->
+<section class="section" id="s6">
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <div><div class="section-title">Fast Mode 快速模式 ↯</div>
+    <div class="section-subtitle">用 /fast 切换 2.5 倍速度的 Opus 4.6</div></div>
+  </div>
+
+  <div class="concept-card">Fast Mode 让 Opus 4.6 响应速度提升 <strong>2.5 倍</strong>，价格为标准的 <strong>6 倍</strong>。输入 <code>/fast</code> 即开即关，启用后终端会出现 <strong>↯</strong> 图标。</div>
+
+  <h3>价格对比</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>模式</th><th>输入价格 (每 MTok)</th><th>输出价格 (每 MTok)</th></tr>
+    <tr><td>标准 Opus 4.6</td><td>$5</td><td>$25</td></tr>
+    <tr><td>Fast Mode Opus 4.6</td><td>$30 <span style="color:var(--red)">(6x)</span></td><td>$150 <span style="color:var(--red)">(6x)</span></td></tr>
+  </table></div>
+
+  <h3>使用方法</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 开启 Fast Mode
+/fast
+# 终端出现 ↯ 标志，速度提升 2.5x
+
+# 正常使用，响应更快
+> 修复 login.ts 中的认证 bug
+
+# 完成紧急工作后关闭
+/fast</code></pre></div>
+
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>快速原型迭代</li>
+      <li>实时调试会话</li>
+      <li>紧急部署/热修复</li>
+      <li>交互式结对编程</li>
+      <li>快速代码审查</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>长时间后台任务</li>
+      <li>预算敏感的项目</li>
+      <li>非紧急的文档工作</li>
+      <li>批量处理任务</li>
+      <li>学习/探索性会话</li>
+    </ul></div>
+  </div>
+
+  <div class="tip-box">
+    <strong>最佳实践：</strong>
+    <ol>
+      <li>策略性地开关 — 需要速度时才开启</li>
+      <li>用 <code>/cost</code> 监控 Fast Mode 花费</li>
+      <li>限时使用 — 用于专注冲刺，而非全天工作</li>
+      <li>配合 <code>/model</code> — 简单任务切 Haiku 省钱</li>
+    </ol>
+  </div>
+
+  <div class="warning-box">Fast Mode 仅支持 Opus 4.6，Sonnet 和 Haiku 不可用。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s6" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Fast Mode 快速模式</span></label>
+</section>
+
+<!-- ==================== Section 7: Git Worktree ==================== -->
+<section class="section" id="s7">
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <div><div class="section-title">多窗口 Git Worktree</div>
+    <div class="section-subtitle">同时在多个分支上运行独立的 Claude Code 会话</div></div>
+  </div>
+
+  <div class="concept-card">Git Worktree 允许同一个 Git 仓库在不同文件夹中打开不同分支，每个文件夹可以运行独立的 Claude Code 会话，互不干扰。</div>
+
+  <h3>核心概念</h3>
+  <div class="card">
+    <ul>
+      <li><strong>正常 Git</strong> — 一个仓库同时只能在一个文件夹、一个分支</li>
+      <li><strong>Worktree</strong> — 可以同时在多个文件夹、多个分支工作</li>
+      <li><strong>隔离性</strong> — 一个 worktree 的改动不影响其他 worktree</li>
+    </ul>
+  </div>
+
+  <h3>操作步骤</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 1. 创建 Worktree（在项目根目录执行）
+git worktree add -b feature-a ../feature-a
+git worktree add -b feature-b ../feature-b
+
+# 2. 在每个 Worktree 中启动 Claude
+cd ../feature-a && claude    # 终端 Tab 1
+cd ../feature-b && claude    # 终端 Tab 2
+
+# 3. 每个终端中的 Claude 独立工作在各自的分支上
+
+# 4. 完成后清理
+git worktree remove ../feature-a
+git worktree remove ../feature-b</code></pre></div>
+
+  <div class="flow">
+    <div class="flow-step"><div class="step-title">主仓库</div><div class="step-desc">branch: main<br>Claude 会话 1</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">Worktree A</div><div class="step-desc">branch: feature-a<br>Claude 会话 2</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">Worktree B</div><div class="step-desc">branch: feature-b<br>Claude 会话 3</div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 使用 Tmux 管理多个会话</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>使用 <a href="https://github.com/tmux/tmux/wiki/Installing" target="_blank">Tmux</a> 可以创建持久化的终端会话，即使断开连接也能继续运行：</p>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code># 创建命名会话
+tmux new-session -s feature-a
+cd ../feature-a && claude
+
+# 分离会话（Ctrl+B, D）
+# 重新连接
+tmux attach -t feature-a</code></pre></div>
+    </div></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>使用一致的命名规范</li>
+      <li>每个 worktree 一个终端标签</li>
+      <li>用 Tmux 管理后台会话</li>
+      <li>用完及时清理 worktree</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>创建过多 worktree 导致混乱</li>
+      <li>忘记清理已完成的 worktree</li>
+      <li>在同一 worktree 开多个 Claude</li>
+      <li>忽略 token 共享消耗（多会话共享额度）</li>
+    </ul></div>
+  </div>
+
+  <div class="warning-box">所有 Claude Code 会话共享同一个 token 配额。多个终端并行运行会更快消耗你的额度——3 个并行会话大约每个会话只有 3-13 个 prompt。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s7" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Git Worktree 多窗口</span></label>
+</section>
+
+<!-- ==================== Section 8: Subagent ==================== -->
+<section class="section" id="s8">
+  <div class="section-header">
+    <span class="section-num">08</span>
+    <div><div class="section-title">Subagent 子代理编排</div>
+    <div class="section-subtitle">通过 Task 工具 spawn 子代理，并行加速复杂任务</div></div>
+  </div>
+
+  <div class="concept-card">子代理（Subagent）是 Claude Code 的"专业团队成员"。通过 Task 工具生成专注特定任务的子代理，它们可以并行工作，由主代理协调。</div>
+
+  <h3>基本用法</h3>
+  <div class="prompt-tpl">
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">Prompt</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code>分析支付功能的实现
+生成 5 个子代理来加速工作
+ultrathink</code></pre></div>
+  </div>
+
+  <h3>编排模式</h3>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> Orchestrator 协调模式</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>主代理作为指挥者，将任务分解给多个专业子代理：</p>
+      <div class="prompt-tpl">
+        <div class="code-wrap"><div class="code-header"><span class="code-lang">Prompt</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+        <pre><code>让 backend-engineer 分析并改进我们的 API 接口。
+然后让 backend-engineer 实现这些改进。
+接着让 code-reviewer 审查所做的更改。
+最后让 backend-engineer 修复审查发现的问题。</code></pre></div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 在技能中使用子代理</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>技能文件中可以指示 Claude 生成子代理进行并行工作：</p>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>## Implementation
+1. Spawn 4 subagents (Task tool) for parallel work:
+   - Agent 1: Generate test cases
+   - Agent 2: Implement core logic
+   - Agent 3: Create documentation
+   - Agent 4: Review security implications
+2. Integrate results into cohesive implementation</code></pre></div>
+    </div></div>
+  </div>
+
+  <h3>Specialized Agent 创建流程</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="step-title">1. 定义角色</div><div class="step-desc">明确专业领域<br>如: Security Reviewer</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">2. 写系统提示</div><div class="step-desc">定义专业能力<br>行为准则</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">3. 设置描述</div><div class="step-desc">简明描述用途<br>触发场景</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">4. 协调使用</div><div class="step-desc">由主代理调用<br>编排协作</div></div>
+  </div>
+
+  <div class="tip-box">
+    <strong>传统方式 vs Agent 方式对比：</strong><br>
+    传统：一个 Claude 做所有事，反馈泛泛，上下文混杂<br>
+    Agent：每个代理专注一个领域，反馈深入，关注点清晰分离
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s8" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Subagent 子代理编排</span></label>
+</section>
+
+<!-- ==================== Section 9: Agent Teams ==================== -->
+<section class="section" id="s9">
+  <div class="section-header">
+    <span class="section-num">09</span>
+    <div><div class="section-title">Agent Teams 团队协作</div>
+    <div class="section-subtitle">实验性多代理协作：Team Lead + Teammates 结构</div></div>
+  </div>
+
+  <div class="concept-card">Agent Teams 是实验性功能，在单个 Claude Code 会话中实现多代理协作。Team Lead 负责协调，Teammates 专注各自任务，通过共享任务列表同步。</div>
+
+  <h3>启用方法</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># 启用 Agent Teams（需要环境变量）
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
+# 永久配置（添加到 shell 配置文件）
+echo 'export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1' >> ~/.zshrc
+source ~/.zshrc
+
+# 验证
+echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS  # 应输出: 1
+
+# 启动 Claude Code
+claude</code></pre></div>
+
+  <h3>团队结构</h3>
+  <div class="card">
+    <ul>
+      <li><strong>Team Lead（主代理）</strong>— 创建/分配任务、监控进度、做架构决策、协调 Teammates、审查成果</li>
+      <li><strong>Teammates（专业代理）</strong>— 专注分配的任务、报告进度和阻塞、可并行工作、更新共享任务列表</li>
+      <li><strong>Shared Task List（共享任务列表）</strong>— 中心协调点、全员可见、追踪依赖关系、防止重复工作</li>
+    </ul>
+  </div>
+
+  <h3>4 种协作模式</h3>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 1. 并行开发</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>Task 1: 前端工程师 - 构建登录 UI
+Task 2: 后端工程师 - 实现认证 API
+Task 3: QA 工程师 - 编写集成测试
+三个代理同时工作。</code></pre></div>
+    </div></div>
+  </div>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 2. 顺序流水线</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>Task 1: 后端工程师 - 创建数据库 Schema
+  ↓ (阻塞 Task 2)
+Task 2: 后端工程师 - 实现 CRUD 接口
+  ↓ (阻塞 Task 3)
+Task 3: 前端工程师 - 构建管理面板</code></pre></div>
+    </div></div>
+  </div>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 3. 代码审查流</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>Task 1: 功能开发者 - 实现新功能
+  ↓ (完成后)
+Task 2: 安全审查者 - 检查漏洞
+Task 3: 性能审查者 - 分析优化点
+  ↓ (都完成后)
+Task 4: 功能开发者 - 处理审查反馈</code></pre></div>
+    </div></div>
+  </div>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> 4. 研究 + 实施</div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">markdown</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code>Task 1: 研究代理 - 分析现有代码模式
+  ↓ (生成建议)
+Task 2: 实施团队 - 跨模块应用改进
+  - Teammate A: 更新认证模块
+  - Teammate B: 更新支付模块
+  - Teammate C: 更新通知模块</code></pre></div>
+    </div></div>
+  </div>
+
+  <div class="prompt-tpl">
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">Prompt</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code>我需要重构认证系统。使用 agent teams：
+
+1. 创建 "research" teammate 分析现有认证实现
+2. 创建 "backend" teammate 重构认证逻辑
+3. 创建 "frontend" teammate 更新 UI 组件
+4. 创建 "qa" teammate 编写全面测试
+
+协调它们按顺序工作，每个将发现传递给下一个。</code></pre></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>分配清晰、聚焦的任务</li>
+      <li>使用描述性名称: "frontend-specialist"</li>
+      <li>设置任务依赖防止冲突</li>
+      <li>保持团队规模 3-5 个最优</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>创建太多 teammates（协调开销大）</li>
+      <li>分配模糊或重叠的任务</li>
+      <li>跳过任务依赖（导致冲突）</li>
+      <li>在一个团队中混合不同项目</li>
+    </ul></div>
+  </div>
+
+  <div class="warning-box">
+    <strong>当前限制（实验阶段）：</strong><br>
+    • 团队不跨会话持久化（重启后消失）<br>
+    • 多代理消耗更多 Token<br>
+    • 大团队会降低速度<br>
+    • Opus 4.6 效果最好
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s9" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Agent Teams 团队协作</span></label>
+</section>
+
+<!-- ==================== Section 10: Hooks + MCP ==================== -->
+<section class="section" id="s10">
+  <div class="section-header">
+    <span class="section-num">10</span>
+    <div><div class="section-title">Hooks + MCP 进阶</div>
+    <div class="section-subtitle">自定义拦截钩子 + 模型上下文协议（万能连接器）</div></div>
+  </div>
+
+  <div class="concept-card">Hooks 是可编程的守护关卡——在 Claude 执行操作前后拦截并控制；MCP 是 AI 的通用翻译协议——让 Claude 能连接任何工具和数据源。</div>
+
+  <h3>Hooks 事件类型</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>事件</th><th>触发时机</th><th>典型用途</th></tr>
+    <tr><td><code>PreToolUse</code></td><td>工具调用前</td><td>验证参数、阻止危险操作</td></tr>
+    <tr><td><code>PostToolUse</code></td><td>工具完成后</td><td>审计日志、结果校验</td></tr>
+    <tr><td><code>UserPromptSubmit</code></td><td>用户提交 prompt 后</td><td>输入过滤、预处理</td></tr>
+    <tr><td><code>Notification</code></td><td>发送通知时</td><td>通知转发、权限提醒</td></tr>
+    <tr><td><code>Stop</code></td><td>主代理完成</td><td>自动化后处理</td></tr>
+    <tr><td><code>SubagentStop</code></td><td>子代理完成</td><td>子代理结果汇总</td></tr>
+    <tr><td><code>SessionStart</code></td><td>会话启动</td><td>初始化配置</td></tr>
+    <tr><td><code>SessionEnd</code></td><td>会话结束</td><td>清理资源</td></tr>
+    <tr><td><code>PreCompact</code></td><td>压缩前</td><td>保存重要上下文</td></tr>
+    <tr><td><code>TeammateIdle</code></td><td>Teammate 空闲 (2026)</td><td>重新分配任务</td></tr>
+    <tr><td><code>TaskCompleted</code></td><td>任务完成 (2026)</td><td>触发下游流程</td></tr>
+  </table></div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span> Hooks 配置方法</div>
+    <div class="acc-body"><div class="acc-content">
+      <p>Hooks 在设置文件中配置：<code>~/.claude/settings.json</code>（用户级）或 <code>.claude/settings.json</code>（项目级）</p>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code># 方式 1: 使用交互式命令（推荐，2026 新增）
+/hooks
+
+# 方式 2: 手动设置
+# 1. 创建 .claude/hooks/ 目录放置 Hook 脚本
+# 2. 编辑 .claude/settings.json 配置 Hook
+# 3. 安装 uv (Python 包管理器) 运行 Python 脚本
+# 4. 确保脚本路径正确</code></pre></div>
+      <p><strong>Exit Codes：</strong></p>
+      <ul>
+        <li><strong>Exit 0</strong> — 成功，stdout 显示给用户</li>
+        <li><strong>Exit 2</strong> — 阻塞错误，可阻止工具调用或 prompt 处理</li>
+        <li><strong>其他 Exit Code</strong> — 非阻塞错误，显示 stderr 但继续执行</li>
+      </ul>
+    </div></div>
+  </div>
+
+  <h3>MCP 三大支柱</h3>
+  <div class="flow">
+    <div class="flow-step" style="border-color:var(--accent)"><div class="step-title">🔧 Tools</div><div class="step-desc">AI 模型控制<br>搜索数据库、写文件<br>模型决定何时使用</div></div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step" style="border-color:var(--green)"><div class="step-title">📦 Resources</div><div class="step-desc">应用程序控制<br>附加文件、日志、JSON<br>开发者决定提供什么</div></div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step" style="border-color:var(--accent4)"><div class="step-title">💬 Prompts</div><div class="step-desc">用户控制<br>斜杠命令触发<br>用户决定何时启动</div></div>
+  </div>
+
+  <h3>安装常用 MCP Server</h3>
+  <div class="code-wrap"><div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+  <pre><code># Playwright（浏览器自动化）
+claude mcp add playwright npx '@playwright/mcp@latest'
+
+# Memory（跨会话记忆）
+claude mcp add memory -s user -- npx -y @modelcontextprotocol/server-memory
+
+# 从 Registry 安装（通用方法）
+claude mcp add &lt;server-name&gt; npx '@&lt;package-name&gt;@latest'
+
+# 带 OAuth 认证的安装
+claude mcp add my-api \
+  --client-id "your-client-id" \
+  --client-secret "your-secret" \
+  npx '@api-mcp-server@latest'
+
+# 查看已安装的 MCP
+/mcp</code></pre></div>
+
+  <div class="tip-box">
+    <strong>MCP Registry 已上线！</strong> 访问 <code>https://registry.modelcontextprotocol.io/</code> 浏览所有官方和社区 MCP 服务器。支持搜索、一键安装、质量验证。
+  </div>
+
+  <div class="warning-box">
+    <strong>安全注意：</strong>Hooks 在你的系统上执行任意 shell 命令，可以修改、删除或访问你用户账户能访问的任何文件。务必验证和审查所有 Hook 脚本。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s10" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Hooks + MCP 进阶</span></label>
+</section>
+
+<!-- ==================== Section 11: Model Guide ==================== -->
+<section class="section" id="s11">
+  <div class="section-header">
+    <span class="section-num">+</span>
+    <div><div class="section-title">模型选择指南</div>
+    <div class="section-subtitle">Opus 4.6 vs Sonnet 4.5 vs Haiku 4.5 使用场景</div></div>
+  </div>
+
+  <div class="concept-card">Claude Code 支持三个模型，用 <code>/model</code> 切换。核心原则：<strong>复杂任务用 Opus，日常任务用 Sonnet，简单快速任务用 Haiku</strong>。</div>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>特性</th><th>Opus 4.6</th><th>Sonnet 4.5</th><th>Haiku 4.5</th></tr>
+    <tr><td>Model ID</td><td><code>claude-opus-4-6</code></td><td><code>claude-sonnet-4-5-20250929</code></td><td><code>claude-haiku-4-5-20251001</code></td></tr>
+    <tr><td>上下文窗口</td><td>200K (API: 1M beta)</td><td>200K</td><td>200K</td></tr>
+    <tr><td>最大输出</td><td>128K tokens</td><td>8K tokens</td><td>8K tokens</td></tr>
+    <tr><td>Fast Mode</td><td>✅ 支持</td><td>❌</td><td>❌</td></tr>
+    <tr><td>API 输入价</td><td>$5/MTok</td><td>$3/MTok</td><td>$1/MTok</td></tr>
+    <tr><td>API 输出价</td><td>$25/MTok</td><td>$15/MTok</td><td>$5/MTok</td></tr>
+    <tr><td>最佳场景</td><td>复杂推理、大型重构、架构决策</td><td>平衡性能与速度</td><td>快速轻量任务</td></tr>
+  </table></div>
+
+  <h3>选择决策树</h3>
+  <div class="card">
+    <ul>
+      <li>🧩 <strong>复杂架构决策 / 大规模重构 / 调试复杂问题 / 多文件分析 / 生产关键代码</strong> → Opus 4.6</li>
+      <li>⚡ <strong>日常编码 / 中等复杂度任务 / 代码审查</strong> → Sonnet 4.5</li>
+      <li>🚀 <strong>简单代码修改 / 文档更新 / 快速问答 / 预算敏感项目</strong> → Haiku 4.5</li>
+    </ul>
+  </div>
+
+  <h3>订阅计划</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>计划</th><th>价格</th><th>可用模型</th><th>使用限制</th></tr>
+    <tr><td>Pro</td><td>$20/月</td><td>全部（Opus、Sonnet、Haiku）</td><td>~45 消息/5小时</td></tr>
+    <tr><td>Max 5x</td><td>$100/月</td><td>全部</td><td>~225 消息/5小时</td></tr>
+    <tr><td>Max 20x</td><td>$200/月</td><td>全部</td><td>~900 消息/5小时</td></tr>
+  </table></div>
+
+  <div class="tip-box">Pro 计划已包含所有模型（含 Opus 4.6），一个订阅同时覆盖 claude.ai 网页端和 Claude Code CLI。</div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s11" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会模型选择指南</span></label>
+</section>
+
+<!-- ==================== Section 12: Token Management ==================== -->
+<section class="section" id="s12">
+  <div class="section-header">
+    <span class="section-num">+</span>
+    <div><div class="section-title">Token 与用量管理</div>
+    <div class="section-subtitle">理解 Token 计算、省量技巧、计划对比</div></div>
+  </div>
+
+  <div class="concept-card">Token 是 AI 处理文本的基本单位。你的每一条 prompt、Claude 的回复、读取的文件、加载的上下文都消耗 Token。<strong>1000 tokens ≈ 750 个英文单词</strong>。</div>
+
+  <h3>Token 计算方式</h3>
+  <div class="card">
+    <ul>
+      <li><strong>文本公式</strong>：tokens ≈ 单词数 + 标点符号数</li>
+      <li><strong>图片公式</strong>：tokens = (宽 px × 高 px) / 750</li>
+      <li><strong>粗略换算</strong>：1 token ≈ 0.75 个英文单词</li>
+      <li><strong>中文</strong>：1 个汉字通常 = 1-2 个 token</li>
+    </ul>
+  </div>
+
+  <h3>什么消耗 Token</h3>
+  <div class="card">
+    <ul>
+      <li>你的 prompt 和问题</li>
+      <li>Claude 的回复和解释</li>
+      <li>系统指令和工具定义</li>
+      <li>Claude 读取的文件内容</li>
+      <li>项目结构分析</li>
+      <li>图片（按像素面积计算）</li>
+    </ul>
+  </div>
+
+  <h3>容量估算</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>指标</th><th>数值</th></tr>
+    <tr><td>44,000 tokens 理论容量</td><td>~2,900-3,400 行纯代码</td></tr>
+    <tr><td>实际有效行数</td><td>~1,000-2,000 行（上下文共享）</td></tr>
+    <tr><td>3 个并行会话</td><td>每会话 ~3-13 个 prompt</td></tr>
+  </table></div>
+
+  <h3>省 Token 技巧</h3>
+  <div class="do-dont">
+    <div class="do-card"><ul>
+      <li>使用 <code>/compact</code> 压缩长对话</li>
+      <li>关闭不用的会话</li>
+      <li>批量处理类似任务</li>
+      <li>用 <code>/model</code> 按任务复杂度选模型</li>
+      <li>prompt 要具体，减少来回</li>
+      <li>一次聚焦一个功能</li>
+      <li>创建简洁的 CLAUDE.md</li>
+    </ul></div>
+    <div class="dont-card"><ul>
+      <li>同时开太多会话</li>
+      <li>不用 <code>/compact</code> 导致上下文膨胀</li>
+      <li>简单任务用 Opus 浪费额度</li>
+      <li>模糊的 prompt 导致多轮对话</li>
+      <li>让 Claude 读取不必要的大文件</li>
+      <li>忽略 <code>/cost</code> 用量监控</li>
+    </ul></div>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s12" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学会 Token 与用量管理</span></label>
+</section>
+
+<!-- ==================== Section 13: Common Mistakes ==================== -->
+<section class="section" id="s13">
+  <div class="section-header">
+    <span class="section-num">!</span>
+    <div><div class="section-title">新手常见错误汇总</div>
+    <div class="section-subtitle">从全文提取的所有 Don't / Warning / Common Issues</div></div>
+  </div>
+
+  <div class="concept-card">以下是从完整教程中提取的所有常见错误和陷阱。避开这些坑，你的 Claude Code 体验会顺畅 10 倍。</div>
+
+  <div class="warning-box">
+    <strong>1. CLAUDE.md 不迭代</strong><br>
+    写了大量内容但从不回顾优化。CLAUDE.md 应像 prompt 一样持续打磨。
+  </div>
+
+  <div class="warning-box">
+    <strong>2. 复杂任务不先规划</strong><br>
+    直接让 Claude 写代码而不走 Explore → Plan → Code 流程，导致质量下降。
+  </div>
+
+  <div class="warning-box">
+    <strong>3. 运行不受信任的 Skills</strong><br>
+    Skills 有完整代码库权限，可执行任意命令。克隆仓库后必须先审查 .claude/commands/ 目录。
+  </div>
+
+  <div class="warning-box">
+    <strong>4. 多会话不注意额度</strong><br>
+    所有 Claude Code 会话共享同一 token 配额。3 个并行会话会迅速耗尽额度。
+  </div>
+
+  <div class="warning-box">
+    <strong>5. 简单任务用 Fast Mode</strong><br>
+    Fast Mode 价格是标准的 6 倍。用于后台任务、文档等非紧急场景纯属浪费。
+  </div>
+
+  <div class="warning-box">
+    <strong>6. Agent Teams 团队过大</strong><br>
+    创建太多 Teammates 导致协调开销超过收益。最优规模 3-5 个。
+  </div>
+
+  <div class="warning-box">
+    <strong>7. 跳过任务依赖</strong><br>
+    在 Agent Teams 中不设置 blockedBy 关系，导致代理间冲突和重复工作。
+  </div>
+
+  <div class="warning-box">
+    <strong>8. Hooks 脚本不审查</strong><br>
+    Hooks 执行任意 shell 命令，不验证脚本就配置可能导致安全问题。
+  </div>
+
+  <div class="warning-box">
+    <strong>9. 技能命名不规范</strong><br>
+    使用 command.md 这样模糊的名称。应使用描述性名称如 create-api-endpoint.md。
+  </div>
+
+  <div class="warning-box">
+    <strong>10. 不使用 /compact 压缩</strong><br>
+    长对话不压缩导致上下文膨胀，浪费 token 且降低回复质量。
+  </div>
+
+  <div class="warning-box">
+    <strong>11. 一个技能做太多事</strong><br>
+    技能应单一职责。一个做 10 件事的技能本质上是 10 个技能的糟糕合体。
+  </div>
+
+  <div class="warning-box">
+    <strong>12. 忘记 Worktree 清理</strong><br>
+    用完 Git Worktree 后不清理，留下大量无用目录。用 <code>git worktree remove</code> 及时清理。
+  </div>
+
+  <div class="warning-box">
+    <strong>13. 全局 Skills 权限过大</strong><br>
+    放在 <code>~/.claude/commands/</code> 的技能会在所有项目中执行。只添加完全信任的技能。
+  </div>
+
+  <div class="warning-box">
+    <strong>14. 混淆 /login 和 /auth login</strong><br>
+    2026 年起应使用新的 <code>/auth login</code> 命令代替旧的 <code>/login</code>。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s13" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已了解所有常见错误</span></label>
+</section>
+
+<!-- ==================== Quick Reference ==================== -->
+<section id="quickref">
+  <h2>⌘ 命令速查表</h2>
+  <div class="qr-grid">
+    <div class="qr-item"><span class="qr-cmd">/init</span><span class="qr-desc">创建 CLAUDE.md</span></div>
+    <div class="qr-item"><span class="qr-cmd">/compact</span><span class="qr-desc">压缩对话历史</span></div>
+    <div class="qr-item"><span class="qr-cmd">/cost</span><span class="qr-desc">查看 Token 用量</span></div>
+    <div class="qr-item"><span class="qr-cmd">/model</span><span class="qr-desc">切换 AI 模型</span></div>
+    <div class="qr-item"><span class="qr-cmd">/fast</span><span class="qr-desc">Fast Mode 开关</span></div>
+    <div class="qr-item"><span class="qr-cmd">/clear</span><span class="qr-desc">清空对话</span></div>
+    <div class="qr-item"><span class="qr-cmd">/memory</span><span class="qr-desc">编辑记忆文件</span></div>
+    <div class="qr-item"><span class="qr-cmd">/review</span><span class="qr-desc">代码审查</span></div>
+    <div class="qr-item"><span class="qr-cmd">/debug</span><span class="qr-desc">调试排查</span></div>
+    <div class="qr-item"><span class="qr-cmd">/teleport</span><span class="qr-desc">发送到网页端</span></div>
+    <div class="qr-item"><span class="qr-cmd">/rename</span><span class="qr-desc">自动命名会话</span></div>
+    <div class="qr-item"><span class="qr-cmd">/hooks</span><span class="qr-desc">配置 Hooks</span></div>
+    <div class="qr-item"><span class="qr-cmd">/auth login</span><span class="qr-desc">登录账号</span></div>
+    <div class="qr-item"><span class="qr-cmd">/auth status</span><span class="qr-desc">认证状态</span></div>
+    <div class="qr-item"><span class="qr-cmd">/add-dir</span><span class="qr-desc">添加工作目录</span></div>
+    <div class="qr-item"><span class="qr-cmd">/agents</span><span class="qr-desc">管理子代理</span></div>
+    <div class="qr-item"><span class="qr-cmd">/mcp</span><span class="qr-desc">管理 MCP 服务器</span></div>
+    <div class="qr-item"><span class="qr-cmd">/permissions</span><span class="qr-desc">权限设置</span></div>
+    <div class="qr-item"><span class="qr-cmd">/config</span><span class="qr-desc">查看/修改配置</span></div>
+    <div class="qr-item"><span class="qr-cmd">/doctor</span><span class="qr-desc">健康检查</span></div>
+    <div class="qr-item"><span class="qr-cmd">/help</span><span class="qr-desc">使用帮助</span></div>
+    <div class="qr-item"><span class="qr-cmd">/vim</span><span class="qr-desc">Vim 模式</span></div>
+    <div class="qr-item"><span class="qr-cmd">/status</span><span class="qr-desc">系统状态</span></div>
+    <div class="qr-item"><span class="qr-cmd">/bug</span><span class="qr-desc">报告 Bug</span></div>
+    <div class="qr-item"><span class="qr-cmd">Shift+Tab</span><span class="qr-desc">Plan ↔ Edit 模式</span></div>
+    <div class="qr-item"><span class="qr-cmd">Shift+Enter</span><span class="qr-desc">输入换行</span></div>
+    <div class="qr-item"><span class="qr-cmd">Ctrl+C</span><span class="qr-desc">中断执行</span></div>
+    <div class="qr-item"><span class="qr-cmd">Ctrl+R</span><span class="qr-desc">查看 transcript</span></div>
+  </div>
+</section>
+
+<div style="text-align:center;padding:48px 0 24px;color:var(--text3);font-size:.85rem">
+  内容来源：<a href="https://github.com/user/Claude-Code-Everything-You-Need-to-Know" target="_blank">Claude-Code-Everything-You-Need-to-Know</a> |
+  进度自动保存于浏览器 localStorage
+</div>
+
+</main>
+
+<script>
+// ===== Navigation =====
+function navTo(id){
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+  if(window.innerWidth<=900) toggleSidebar();
+  updateActiveNav(id);
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+
+function updateActiveNav(id){
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.classList.toggle('active',n.dataset.target===id);
+  });
+}
+
+// Scroll spy
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      updateActiveNav(e.target.id);
+      e.target.classList.add('visible');
+    }
+  });
+},{threshold:0.15,rootMargin:'-60px 0px -40% 0px'});
+document.querySelectorAll('.section,[id="quickref"]').forEach(s=>observer.observe(s));
+
+// ===== Accordion =====
+function toggleAcc(header){
+  header.classList.toggle('open');
+  const body=header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ===== Copy Code =====
+function copyCode(btn){
+  const code=btn.closest('.code-wrap').querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(()=>{
+    btn.textContent='已复制!';
+    btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied');},2000);
+  });
+}
+
+// ===== Progress =====
+const STORAGE_KEY='claude-code-learning-progress';
+function loadProgress(){
+  try{
+    const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    document.querySelectorAll('.learn-check input').forEach(cb=>{
+      const topic=cb.dataset.topic;
+      if(data[topic]){
+        cb.checked=true;
+        updateNavDone(topic,true);
+      }
+    });
+    updateProgressBar();
+  }catch(e){}
+}
+function saveProgress(cb){
+  try{
+    const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    data[cb.dataset.topic]=cb.checked;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    updateNavDone(cb.dataset.topic,cb.checked);
+    updateProgressBar();
+  }catch(e){}
+}
+function updateNavDone(topic,done){
+  const nav=document.querySelector(`.nav-item[data-target="${topic}"]`);
+  if(nav) nav.classList.toggle('done',done);
+}
+function updateProgressBar(){
+  const all=document.querySelectorAll('.learn-check input');
+  const checked=document.querySelectorAll('.learn-check input:checked');
+  const pct=all.length?Math.round(checked.length/all.length*100):0;
+  document.getElementById('progress-bar').style.width=pct+'%';
+  document.getElementById('progress-text').textContent=pct+'%';
+}
+
+// ===== Init =====
+loadProgress();
+// Make all sections visible after a short delay if not scrolled into view
+setTimeout(()=>{
+  document.querySelectorAll('.section').forEach(s=>s.classList.add('visible'));
+},800);
+</script>
+</body>
+</html>

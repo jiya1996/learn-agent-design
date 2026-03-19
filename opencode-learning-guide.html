@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open Code 源码学习指南 — AI Agent 架构深度解析</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --pink: #f778ba;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 60px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 { font-size: 2.5em; margin-bottom: 10px; }
+  .hero .subtitle { color: var(--text2); font-size: 1.2em; }
+  .hero .badge {
+    display: inline-block;
+    background: var(--bg3);
+    color: var(--green);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin: 15px 5px 0;
+    font-size: 0.85em;
+  }
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  nav a {
+    color: var(--accent);
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    transition: background 0.2s;
+  }
+  nav a:hover { background: var(--bg3); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 30px 40px; }
+  h2 {
+    font-size: 1.8em;
+    margin: 50px 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+  h3 {
+    font-size: 1.3em;
+    margin: 30px 0 12px;
+    color: var(--purple);
+  }
+  h4 {
+    font-size: 1.1em;
+    margin: 20px 0 8px;
+    color: var(--orange);
+  }
+  p { margin: 10px 0; }
+  .analogy {
+    background: linear-gradient(135deg, #1a2332, #1e2d3d);
+    border-left: 4px solid var(--orange);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .analogy::before { content: "💡 通俗理解："; font-weight: bold; color: var(--orange); }
+  .key-point {
+    background: var(--bg2);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .key-point::before { content: "⭐ 关键要点："; font-weight: bold; color: var(--accent); display: block; margin-bottom: 6px; }
+  .warning {
+    background: #2d1b00;
+    border-left: 4px solid var(--orange);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  pre {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.88em;
+    line-height: 1.5;
+    margin: 12px 0;
+  }
+  code {
+    background: var(--bg3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+  }
+  pre code { background: none; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+  }
+  th { background: var(--bg3); color: var(--accent); }
+  tr:nth-child(even) { background: var(--bg2); }
+  .file-ref {
+    color: var(--green);
+    font-family: monospace;
+    font-size: 0.88em;
+  }
+  .flow-diagram {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: monospace;
+    white-space: pre;
+    line-height: 1.4;
+    overflow-x: auto;
+  }
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .compare-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .compare-card h4 { margin-top: 0; }
+  .module-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+  }
+  .module-card .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .module-card .header h3 { margin: 0; }
+  .module-card .file-path {
+    color: var(--text2);
+    font-size: 0.85em;
+    font-family: monospace;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78em;
+    font-weight: bold;
+    margin: 2px;
+  }
+  .tag-core { background: #1f3a2a; color: var(--green); }
+  .tag-important { background: #2a2a1a; color: var(--orange); }
+  .tag-info { background: #1a2a3a; color: var(--accent); }
+  .toc {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .toc h3 { margin-top: 0; color: var(--accent); }
+  .toc ol { padding-left: 24px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+  details {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 12px 0;
+    padding: 0;
+  }
+  details summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--accent);
+  }
+  details summary:hover { background: var(--bg3); }
+  details > div { padding: 0 16px 16px; }
+  .step-num {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--bg);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 28px;
+    font-weight: bold;
+    margin-right: 8px;
+    font-size: 0.85em;
+  }
+  .breadcrumb { color: var(--text2); font-size: 0.9em; margin-bottom: 8px; }
+  footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+  @media (max-width: 768px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .container { padding: 20px; }
+    .hero { padding: 40px 20px; }
+    nav { padding: 10px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Open Code 源码学习指南</h1>
+  <p class="subtitle">AI Agent 架构深度解析 — 从 Go 源码理解 Claude Code 工作原理</p>
+  <div>
+    <span class="badge">Go 1.24</span>
+    <span class="badge">70+ 模型</span>
+    <span class="badge">12 个工具</span>
+    <span class="badge">10 个 Provider</span>
+    <span class="badge">Bubble Tea TUI</span>
+  </div>
+</div>
+
+<nav>
+  <a href="#overview">全景图</a>
+  <a href="#startup">启动流程</a>
+  <a href="#agent-loop">Agent Loop</a>
+  <a href="#tools">工具系统</a>
+  <a href="#provider">Provider 层</a>
+  <a href="#permission">权限模型</a>
+  <a href="#session-message">会话与消息</a>
+  <a href="#prompt">系统提示词</a>
+  <a href="#subagent">子代理</a>
+  <a href="#mcp">MCP 协议</a>
+  <a href="#tui">TUI 界面</a>
+  <a href="#pubsub">事件总线</a>
+  <a href="#compare">对照 Claude Code</a>
+  <a href="#experiments">动手实验</a>
+</nav>
+
+<div class="container">
+
+<!-- ===== 阅读须知 ===== -->
+<div class="key-point" style="margin-top:20px">
+本指南面向没有编码经验的 PM。每个模块都会先用<strong>生活类比</strong>解释概念，再展示<strong>简化伪代码</strong>（不是真正的 Go 代码，而是逻辑流程），最后标注<strong>源码位置</strong>供你对照阅读。你不需要运行这个项目，只需要理解"它是怎么工作的"。
+</div>
+
+<!-- ===== 目录 ===== -->
+<div class="toc">
+  <h3>目录</h3>
+  <ol>
+    <li><a href="#overview">项目全景图 — 模块职责地图</a></li>
+    <li><a href="#startup">程序启动流程 — 从 main.go 到界面出现</a></li>
+    <li><a href="#agent-loop">模块 1：Agent Loop — 核心中的核心</a></li>
+    <li><a href="#tools">模块 2：工具系统 — Agent 的"双手"</a></li>
+    <li><a href="#provider">模块 3：Provider 抽象层 — 多模型适配</a></li>
+    <li><a href="#permission">模块 4：权限模型 — 安全门卫</a></li>
+    <li><a href="#session-message">模块 5：Session 与 Message — 对话记忆</a></li>
+    <li><a href="#prompt">模块 6：系统提示词 — Agent 的"性格说明书"</a></li>
+    <li><a href="#subagent">模块 7：子代理 — Agent 中的 Agent</a></li>
+    <li><a href="#mcp">模块 8：MCP 协议 — 外部工具接入</a></li>
+    <li><a href="#tui">模块 9：TUI 界面 — 终端里的"App"</a></li>
+    <li><a href="#pubsub">模块 10：事件总线 — 模块间的"广播系统"</a></li>
+    <li><a href="#compare">与 Claude Code 的完整对照表</a></li>
+    <li><a href="#experiments">动手实验建议</a></li>
+  </ol>
+</div>
+
+<!-- ===== 1. 全景图 ===== -->
+<h2 id="overview">1. 项目全景图</h2>
+
+<div class="analogy">
+把 Open Code 想象成一个<strong>智能客服中心</strong>：用户打电话（输入提示词）→ 客服经理（Agent Loop）接听 → 派工人（Tool）去仓库查资料、修改文件 → 工人需要钥匙（Permission）才能进入敏感区域 → 所有操作记录在案（Session/Message）→ 客服显示屏（TUI）让你看到整个过程。
+</div>
+
+<pre><code>opencode/
+├── main.go                       ← 入口：就一行 cmd.Execute()
+├── cmd/root.go                   ← CLI 命令定义（解析命令行参数）
+│
+├── internal/
+│   ├── app/app.go                ← ★ 应用核心：把所有模块组装在一起
+│   │
+│   ├── llm/                      ← ★★★ LLM 相关（最核心的包）
+│   │   ├── agent/                ← Agent Loop + 子代理 + MCP
+│   │   │   ├── agent.go          ← 主循环（整个项目最重要的文件）
+│   │   │   ├── agent-tool.go     ← 子代理工具
+│   │   │   ├── tools.go          ← 工具注册清单
+│   │   │   └── mcp-tools.go      ← MCP 工具发现与加载
+│   │   │
+│   │   ├── provider/             ← 多模型适配层
+│   │   │   ├── provider.go       ← Provider 接口 + 工厂
+│   │   │   ├── anthropic.go      ← Claude 适配（473 行）
+│   │   │   ├── openai.go         ← OpenAI 适配（426 行）
+│   │   │   ├── gemini.go         ← Gemini 适配（555 行）
+│   │   │   ├── copilot.go        ← GitHub Copilot（672 行）
+│   │   │   ├── bedrock.go        ← AWS Bedrock（代理模式）
+│   │   │   ├── azure.go          ← Azure OpenAI（包装模式）
+│   │   │   └── vertexai.go       ← Google VertexAI（别名模式）
+│   │   │
+│   │   ├── tools/                ← 工具实现
+│   │   │   ├── tools.go          ← BaseTool 接口定义
+│   │   │   ├── bash.go           ← Shell 命令执行
+│   │   │   ├── edit.go           ← 文件编辑（替换）
+│   │   │   ├── write.go          ← 文件写入（覆盖）
+│   │   │   ├── patch.go          ← 批量修改
+│   │   │   ├── view.go           ← 文件查看
+│   │   │   ├── grep.go           ← 内容搜索
+│   │   │   ├── glob.go           ← 文件名搜索
+│   │   │   ├── ls.go             ← 目录列表
+│   │   │   ├── fetch.go          ← 网页抓取
+│   │   │   ├── sourcegraph.go    ← 代码搜索引擎
+│   │   │   ├── diagnostics.go    ← 代码诊断（错误/警告）
+│   │   │   ├── file.go           ← 文件读写时间追踪
+│   │   │   └── shell/shell.go    ← 持久 Shell 进程管理
+│   │   │
+│   │   ├── prompt/               ← 系统提示词
+│   │   └── models/               ← 模型注册表（70+ 模型）
+│   │
+│   ├── session/                  ← 会话管理
+│   ├── message/                  ← 消息管理
+│   ├── permission/               ← 权限控制
+│   ├── pubsub/                   ← 事件总线
+│   ├── db/                       ← SQLite 数据库
+│   ├── history/                  ← 文件编辑历史
+│   ├── config/                   ← 配置管理
+│   ├── tui/                      ← 终端 UI（Bubble Tea）
+│   ├── lsp/                      ← 语言服务器协议
+│   └── logging/                  ← 日志系统
+</code></pre>
+
+<!-- ===== 2. 启动流程 ===== -->
+<h2 id="startup">2. 程序启动流程</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">main.go → cmd/root.go → internal/app/app.go</span></p>
+
+<div class="analogy">
+像开一家店：先装修（加载配置）→ 连通仓库（连接数据库）→ 招聘员工（创建 Agent）→ 装好收银台（启动 TUI）→ 开门营业（等待用户输入）。
+</div>
+
+<div class="flow-diagram">main.go
+  │
+  └─ cmd.Execute()                    ← 用 Cobra 框架解析命令行参数
+       │
+       ├─ 解析参数: --debug, --cwd, --prompt
+       ├─ config.Load(cwd)            ← 读 ~/.opencode.json + ./.opencode.json
+       ├─ db.Connect()                ← 连接 SQLite，自动跑数据库迁移
+       │
+       ├─ app.New(ctx, conn)          ← 组装应用
+       │    ├─ session.NewService()    ← 会话管理服务
+       │    ├─ message.NewService()    ← 消息管理服务
+       │    ├─ permission.NewService() ← 权限管理服务
+       │    ├─ agent.NewAgent()        ← ★ 创建 CoderAgent（核心）
+       │    │    ├─ 选择 Provider（根据配置）
+       │    │    ├─ 加载系统提示词
+       │    │    └─ 注册所有工具
+       │    └─ go initLSPClients()     ← 后台启动语言服务器
+       │
+       ├─ 如果有 --prompt 参数:
+       │    └─ app.RunNonInteractive()  ← 非交互模式（一问一答）
+       │
+       └─ 否则:
+            ├─ tui.New(app)             ← 创建终端界面
+            ├─ setupSubscriptions()     ← 连接事件总线
+            └─ program.Run()            ← 启动界面，等待用户操作
+</div>
+
+<!-- ===== 3. Agent Loop ===== -->
+<h2 id="agent-loop">3. 模块 1：Agent Loop — 核心中的核心</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/agent/agent.go</span> (759 行)</p>
+
+<span class="tag tag-core">核心模块</span>
+
+<div class="analogy">
+想象你和一个很聪明的助手对话。你说"帮我查一下 X 文件里有没有 bug"，助手想了想说"我需要先看看这个文件"（工具调用请求），你把文件内容给他看（工具执行结果），他又说"我发现第 42 行有问题，我需要修改它"（又一个工具调用），你帮他改了（执行），他说"好了，改完了，这是修改说明"（最终回复）。<br><br>这个<strong>"对话 → 思考 → 需要工具 → 执行工具 → 把结果告诉 AI → 再思考 → ..."</strong> 的循环就是 Agent Loop。
+</div>
+
+<h3>核心循环伪代码</h3>
+
+<pre><code>函数 processGeneration(用户消息):
+
+    消息历史 = 获取之前的所有对话记录
+    消息历史.追加(用户消息)
+
+    // 如果是第一条消息，后台生成会话标题
+    如果 消息历史为空:
+        后台启动: 生成标题(用户消息)
+
+    // ★ 这就是 Agent Loop 的核心
+    无限循环:
+
+        // 第一步：把消息历史发给 LLM
+        AI回复, 工具调用列表 = 调用LLM(消息历史)
+
+        // 第二步：检查 AI 是否需要使用工具
+        如果 AI回复说"我要用工具" 且 工具调用列表不为空:
+
+            // 第三步：逐个执行工具
+            对于每个工具调用:
+                找到对应的工具对象
+                工具结果 = 工具.执行(参数)
+
+            // 第四步：把工具结果加入消息历史，继续循环
+            消息历史.追加(AI回复)
+            消息历史.追加(工具结果)
+            继续循环  ← 回到第一步，让 AI 看到结果后继续思考
+
+        否则:
+            // AI 不需要工具了，说明任务完成
+            返回 AI回复  ← 循环结束
+</code></pre>
+
+<div class="key-point">
+Agent Loop 的本质就是一个 <code>for</code> 循环。每次迭代做三件事：<br>
+1. 把对话历史发给 LLM<br>
+2. 如果 LLM 要求使用工具 → 执行工具 → 把结果加入历史 → 继续循环<br>
+3. 如果 LLM 不要求工具 → 返回最终回复 → 循环结束
+</div>
+
+<h3>流式处理 (Streaming)</h3>
+
+<div class="analogy">
+普通模式像发短信——等对方写完整条消息才收到。流式模式像打电话——对方说一个字你就听到一个字，感觉更快、更自然。
+</div>
+
+<p>在 <code>streamAndHandleEvents</code> 方法中，LLM 的回复不是一次性返回的，而是通过一个 <strong>channel</strong>（Go 语言的"管道"）一个事件一个事件地流过来：</p>
+
+<table>
+<tr><th>事件类型</th><th>含义</th><th>TUI 的反应</th></tr>
+<tr><td><code>EventThinkingDelta</code></td><td>AI 的思考过程片段</td><td>显示"思考中..."</td></tr>
+<tr><td><code>EventContentDelta</code></td><td>AI 回复的文字片段</td><td>逐字显示回复</td></tr>
+<tr><td><code>EventToolUseStart</code></td><td>AI 开始请求一个工具</td><td>显示工具名称</td></tr>
+<tr><td><code>EventToolUseStop</code></td><td>工具参数接收完毕</td><td>准备执行工具</td></tr>
+<tr><td><code>EventComplete</code></td><td>整个回复结束</td><td>统计 token 和费用</td></tr>
+<tr><td><code>EventError</code></td><td>出错了</td><td>显示错误信息</td></tr>
+</table>
+
+<h3>取消机制</h3>
+
+<p>每个会话的请求都有独立的"取消开关"（<code>CancelFunc</code>），存在一个线程安全的 Map 里。用户按 Esc 时，调用对应的 CancelFunc，Agent Loop 在下次循环检查时发现已取消，就停止工作。</p>
+
+<!-- ===== 4. 工具系统 ===== -->
+<h2 id="tools">4. 模块 2：工具系统 — Agent 的"双手"</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/tools/</span></p>
+
+<span class="tag tag-core">核心模块</span>
+
+<div class="analogy">
+Agent 本身只会"思考"和"说话"，不能直接操作文件系统或执行命令。工具就像它的"双手"——想查文件就用 View 工具，想改文件就用 Edit 工具，想执行命令就用 Bash 工具。每个工具都有说明书（Info），告诉 AI "我能做什么、需要什么参数"。
+</div>
+
+<h3>工具接口定义</h3>
+
+<pre><code>// 每个工具必须实现这两个方法：
+
+接口 BaseTool:
+    Info()  → ToolInfo    // "我是谁，我能做什么，我需要什么参数"
+    Run()   → ToolResponse // "执行！返回结果"
+
+结构 ToolInfo:
+    Name        string          // 工具名，如 "bash", "edit"
+    Description string          // 给 AI 看的详细说明
+    Parameters  map[string]any  // JSON Schema 格式的参数定义
+    Required    []string        // 必填参数列表</code></pre>
+
+<h3>完整工具清单</h3>
+
+<table>
+<tr><th>工具名</th><th>文件</th><th>功能</th><th>需要权限</th><th>关键细节</th></tr>
+<tr><td><strong>bash</strong></td><td>bash.go</td><td>执行 Shell 命令</td><td>部分需要</td><td>安全命令（git status、ls 等）免权限；禁止 curl/wget 等网络命令；输出超 30KB 自动截断</td></tr>
+<tr><td><strong>edit</strong></td><td>edit.go</td><td>编辑文件（查找替换）</td><td>是</td><td>必须先 view 才能 edit；old_string 必须唯一匹配；自动记录版本历史</td></tr>
+<tr><td><strong>write</strong></td><td>write.go</td><td>写入/创建文件</td><td>是</td><td>覆盖整个文件；自动创建父目录；检查文件是否被外部修改</td></tr>
+<tr><td><strong>patch</strong></td><td>patch.go</td><td>批量修改多个文件</td><td>是（每个文件）</td><td>统一 diff 格式；支持添加/更新/删除文件；每个文件变更单独请求权限</td></tr>
+<tr><td><strong>view</strong></td><td>view.go</td><td>查看文件内容</td><td>否</td><td>最大 250KB；默认显示前 2000 行；支持 offset/limit 分页；带行号</td></tr>
+<tr><td><strong>grep</strong></td><td>grep.go</td><td>搜索文件内容</td><td>否</td><td>支持正则表达式；优先用 ripgrep，退回纯 Go；最多返回 100 个结果</td></tr>
+<tr><td><strong>glob</strong></td><td>glob.go</td><td>按文件名模式搜索</td><td>否</td><td>支持 ** 通配符；优先用 ripgrep；最多 100 个结果</td></tr>
+<tr><td><strong>ls</strong></td><td>ls.go</td><td>列出目录结构</td><td>否</td><td>树形显示；自动跳过 node_modules/.git 等；最多 1000 个文件</td></tr>
+<tr><td><strong>fetch</strong></td><td>fetch.go</td><td>抓取网页内容</td><td>是</td><td>支持 text/markdown/html 三种输出格式；最大 5MB；超时 30 秒</td></tr>
+<tr><td><strong>sourcegraph</strong></td><td>sourcegraph.go</td><td>搜索公共代码库</td><td>否</td><td>用 Sourcegraph GraphQL API；支持 repo:/file:/lang: 过滤</td></tr>
+<tr><td><strong>diagnostics</strong></td><td>diagnostics.go</td><td>获取代码诊断</td><td>否</td><td>依赖 LSP 客户端；显示错误/警告/提示；按严重程度排序</td></tr>
+<tr><td><strong>agent</strong></td><td>agent-tool.go</td><td>启动子代理</td><td>否</td><td>子代理只有只读工具；创建独立会话；费用合并到父会话</td></tr>
+</table>
+
+<h3>工具注册机制</h3>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/agent/tools.go</span></p>
+
+<pre><code>// 主 Agent（CoderAgent）的工具清单 — 有完整权限
+CoderAgentTools = [
+    Bash, Edit, Write, Patch, Fetch,      // 需要权限的工具
+    View, Glob, Grep, Ls, Sourcegraph,    // 只读工具
+    Diagnostics, Agent,                    // 辅助工具
+    ...MCP工具                             // 外部工具（动态发现）
+]
+
+// 子 Agent（TaskAgent）的工具清单 — 只有只读权限
+TaskAgentTools = [
+    Glob, Grep, Ls, Sourcegraph, View     // 只能看，不能改
+]</code></pre>
+
+<div class="key-point">
+工具注册的设计要点：<br>
+1. <strong>主 Agent 全能</strong>，子 Agent 只读 — 这就是"权限隔离"<br>
+2. 工具通过 <code>Info()</code> 方法把自己的"说明书"（JSON Schema）告诉 LLM，LLM 根据说明书决定何时调用哪个工具<br>
+3. MCP 工具是动态发现的，启动时扫描配置中的 MCP 服务器
+</div>
+
+<h3>工具执行的安全机制</h3>
+
+<h4>文件修改安全</h4>
+<pre><code>// 防止覆盖外部修改的三步检查：
+
+1. 文件必须先被 View 过（记录了上次读取时间）
+2. 检查文件的修改时间是否晚于上次读取时间
+3. 如果文件在 View 之后被其他程序修改过 → 拒绝编辑
+
+// 这就像图书馆借书：你必须先登记（View），如果别人在你之后改过这本书，
+// 你的修改就不能直接提交，必须重新阅读最新版本。</code></pre>
+
+<h4>Shell 命令安全</h4>
+<pre><code>// Bash 工具有三层安全：
+
+禁止的命令 = [curl, wget, nc, telnet, chrome, firefox, ...]  // 网络/浏览器工具
+安全的命令 = [git status, ls, pwd, date, whoami, go ...]      // 只读命令
+
+如果 命令 在禁止列表 → 直接拒绝
+如果 命令 在安全列表 → 直接执行（不需要权限）
+其他命令 → 请求用户权限</code></pre>
+
+<!-- ===== 5. Provider ===== -->
+<h2 id="provider">5. 模块 3：Provider 抽象层</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/provider/</span> (总计 2559 行)</p>
+
+<span class="tag tag-important">重要模块</span>
+
+<div class="analogy">
+想象你有一个万能充电器，不管是 iPhone、Android、还是笔记本电脑，都能用同一个接口充电。Provider 层就是这个"万能充电器"——不管底层是 Claude、GPT 还是 Gemini，Agent Loop 用同一个接口调用，不需要关心具体是哪个模型。
+</div>
+
+<h3>接口定义</h3>
+
+<pre><code>接口 Provider:
+    SendMessages(消息列表, 工具列表) → 回复      // 一次性发送
+    StreamResponse(消息列表, 工具列表) → 事件流   // 流式返回
+    Model() → 模型信息                           // 当前模型</code></pre>
+
+<h3>工厂模式：一个入口，多种实现</h3>
+
+<pre><code>函数 NewProvider(提供商名称, 选项...):
+    根据 提供商名称:
+        "anthropic"  → 创建 AnthropicClient   // Claude API
+        "openai"     → 创建 OpenAIClient      // OpenAI API
+        "gemini"     → 创建 GeminiClient       // Google API
+        "copilot"    → 创建 CopilotClient      // GitHub Copilot
+        "bedrock"    → 创建 AnthropicClient    // AWS 版 Claude（代理模式）
+        "azure"      → 创建 OpenAIClient       // Azure 版 OpenAI（包装模式）
+        "vertexai"   → 创建 GeminiClient       // Google Cloud 版 Gemini
+        "groq"       → 创建 OpenAIClient       // 换 URL 即可（兼容 OpenAI）
+        "openrouter" → 创建 OpenAIClient       // 换 URL 即可
+        "xai"        → 创建 OpenAIClient       // 换 URL 即可
+        "local"      → 创建 OpenAIClient       // 本地模型</code></pre>
+
+<div class="key-point">
+巧妙的复用设计：<br>
+- GROQ、OpenRouter、XAI、Local 都兼容 OpenAI 的 API 格式，所以直接复用 <code>OpenAIClient</code>，只改 URL<br>
+- Azure 包装了 OpenAI 客户端，加上 Azure 认证<br>
+- VertexAI 复用了 Gemini 客户端，改了后端地址<br>
+- Bedrock 是代理模式，内部委托给 Anthropic 客户端
+</div>
+
+<h3>每个 Provider 的核心差异</h3>
+
+<table>
+<tr><th>Provider</th><th>消息格式</th><th>工具格式</th><th>特殊功能</th></tr>
+<tr><td>Anthropic</td><td>Content Block 数组</td><td>ToolUseBlock</td><td>Extended Thinking（深度思考）、Prompt Caching（缓存节省费用）</td></tr>
+<tr><td>OpenAI</td><td>Message 对象</td><td>Function 定义</td><td>Reasoning Effort（推理力度调节）</td></tr>
+<tr><td>Gemini</td><td>Content + Parts</td><td>FunctionDeclaration</td><td>需要递归类型转换（最复杂的 Schema 处理）</td></tr>
+<tr><td>Copilot</td><td>同 OpenAI</td><td>同 OpenAI</td><td>GitHub Token 自动刷新、多工具流式适配</td></tr>
+</table>
+
+<h3>统一的重试机制</h3>
+
+<pre><code>所有 Provider 共享的重试策略：
+    最大重试次数 = 8
+    退避公式 = 2000毫秒 × 2^(第几次重试)   // 2秒, 4秒, 8秒, 16秒...
+    随机抖动 = ±20%                        // 避免所有请求同时重试
+
+    重试条件：
+    - 429 = 速率限制（太多请求）
+    - 500 = 服务器错误
+    - 529 = 服务过载（Anthropic 特有）
+    - 401 = 认证失效（Copilot 会自动刷新 token）</code></pre>
+
+<!-- ===== 6. 权限模型 ===== -->
+<h2 id="permission">6. 模块 4：权限模型 — 安全门卫</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/permission/permission.go</span> (119 行)</p>
+
+<span class="tag tag-important">重要模块</span>
+
+<div class="analogy">
+像酒店的房卡系统：工具要进入"危险区域"（写文件、执行命令）时，必须先到前台（Permission Service）申请通行证。前台广播给住客（用户）"有人要进 312 号房，允许吗？"，住客可以说"允许"、"这次都允许"或"拒绝"。
+</div>
+
+<div class="flow-diagram">工具想执行 → permission.Request()
+    │
+    ├─ 检查 1：是否自动批准模式？（非交互模式）
+    │   └─ 是 → 直接放行
+    │
+    ├─ 检查 2：是否有相同操作的历史批准？（同工具+同操作+同路径+同会话）
+    │   └─ 是 → 直接放行
+    │
+    └─ 都没有 → 发布事件到 PubSub → TUI 弹出权限对话框
+                                      │
+                                      ├─ 用户点 "Allow(a)"        → 本次批准
+                                      ├─ 用户点 "AllowSession(s)" → 同类操作都批准
+                                      └─ 用户点 "Deny(d)"         → 拒绝
+</div>
+
+<h3>权限请求的数据结构</h3>
+
+<pre><code>一个权限请求包含：
+    ID          = 唯一标识
+    SessionID   = 哪个会话
+    ToolName    = 哪个工具（bash/edit/write/fetch/patch）
+    Action      = 什么操作（execute/write/fetch）
+    Description = 人类可读的描述（如 "Execute: grep -r 'bug' src/"）
+    Path        = 操作的路径
+    Params      = 详细参数（包括 diff 预览）</code></pre>
+
+<!-- ===== 7. Session & Message ===== -->
+<h2 id="session-message">7. 模块 5：Session 与 Message — 对话记忆</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/session/session.go</span> + <span class="file-ref">internal/message/message.go</span></p>
+
+<div class="analogy">
+Session 像一个"对话文件夹"，Message 像文件夹里的"每一页纸"。你可以有多个文件夹（多个会话），每个文件夹里按时间顺序存放对话记录。
+</div>
+
+<h3>Session（会话）</h3>
+
+<pre><code>一个会话包含：
+    ID               = 唯一标识
+    ParentSessionID  = 父会话（子代理会话的父级）
+    Title            = 标题（自动生成）
+    MessageCount     = 消息数量
+    PromptTokens     = 输入 token 数
+    CompletionTokens = 输出 token 数
+    Cost             = 费用（美元）
+    SummaryMessageID = 压缩摘要的消息 ID</code></pre>
+
+<h3>Message（消息）</h3>
+
+<p>消息有三种角色：</p>
+
+<table>
+<tr><th>角色</th><th>谁发的</th><th>典型内容</th></tr>
+<tr><td><code>user</code></td><td>用户</td><td>文字 + 可能的图片附件</td></tr>
+<tr><td><code>assistant</code></td><td>AI</td><td>文字回复 + 思考过程 + 工具调用请求</td></tr>
+<tr><td><code>tool</code></td><td>工具系统</td><td>工具执行的结果</td></tr>
+</table>
+
+<p>每条消息的内容是一个 <code>Parts</code> 数组，可以包含多种类型：</p>
+
+<pre><code>一条消息的 Parts 示例：
+[
+  {类型: "text",       数据: {text: "请帮我查看 main.go"}},
+  {类型: "tool_call",  数据: {id: "1", name: "view", input: '{"file_path": "main.go"}'}},
+  {类型: "tool_result", 数据: {tool_call_id: "1", content: "package main..."}},
+  {类型: "finish",     数据: {reason: "end_turn", time: 1234567890}}
+]</code></pre>
+
+<h3>上下文压缩（Summarize）</h3>
+
+<div class="analogy">
+对话太长了怎么办？就像开会记录太多页了，安排一个秘书（Summarizer Agent）把前面的内容浓缩成一段摘要，后续对话只看摘要 + 最新消息，省下大量 token。
+</div>
+
+<pre><code>压缩流程：
+1. 对话达到上下文窗口的 95% 时自动触发
+2. 把所有消息发给 Summarizer Agent，让它生成摘要
+3. 保存摘要消息，记录 SummaryMessageID
+4. 后续对话从摘要消息开始，跳过更早的消息</code></pre>
+
+<!-- ===== 8. 系统提示词 ===== -->
+<h2 id="prompt">8. 模块 6：系统提示词 — Agent 的"性格说明书"</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/prompt/coder.go</span></p>
+
+<span class="tag tag-info">知识模块</span>
+
+<div class="analogy">
+系统提示词就像给新员工的"入职手册"——告诉 AI 它叫什么名字、应该怎么说话、遵守什么规矩、擅长做什么。每次对话开始前，这段文字都会悄悄发给 AI，用户看不到。
+</div>
+
+<h3>Coder Agent 的系统提示词结构</h3>
+
+<pre><code>系统提示词 = 拼接以下内容：
+
+1. 基础身份设定
+   "你是 OpenCode，一个交互式 CLI 工具，帮助用户完成软件工程任务..."
+
+2. 风格要求
+   - 简洁直接，不要废话
+   - 回复不超过 4 行（除非用户要求详细解释）
+   - 不要在回复前后加"这是答案..."之类的套话
+   - 使用 Markdown 格式
+
+3. 行为准则
+   - 先理解再动手（看文件结构、读代码）
+   - 遵循现有代码风格
+   - 不要假设某个库存在，先检查
+   - 永远不要自动提交代码（除非用户明确要求）
+   - 修改后运行 lint/typecheck
+
+4. 工具使用策略
+   - 搜索时优先用 Agent 工具（减少上下文占用）
+   - 无依赖关系的工具调用应并行执行
+   - 用户看不到工具的完整输出，需要你总结
+
+5. 动态注入的上下文
+   ├─ 工作目录路径
+   ├─ 是否是 Git 仓库
+   ├─ 操作系统
+   ├─ 当前日期
+   ├─ 项目文件列表
+   └─ 项目特定指令文件的内容（如果存在）：
+      CLAUDE.md, opencode.md, .cursorrules,
+      .github/copilot-instructions.md 等</code></pre>
+
+<h3>其他 Agent 的提示词</h3>
+
+<table>
+<tr><th>Agent</th><th>用途</th><th>Max Token</th><th>要点</th></tr>
+<tr><td>Title</td><td>生成会话标题</td><td>80</td><td>"不超过 50 字符，一行，不用引号"</td></tr>
+<tr><td>Task</td><td>子代理执行查询任务</td><td>5000</td><td>"简洁直接，返回绝对路径"</td></tr>
+<tr><td>Summarizer</td><td>压缩对话历史</td><td>5000</td><td>"重点记录做了什么、在改什么文件、下一步做什么"</td></tr>
+</table>
+
+<!-- ===== 9. 子代理 ===== -->
+<h2 id="subagent">9. 模块 7：子代理 — Agent 中的 Agent</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/agent/agent-tool.go</span> (109 行)</p>
+
+<div class="analogy">
+主 Agent 就像项目经理，当遇到"搜索代码库里所有用到 config 的地方"这种查询任务时，与其自己一个个文件找，不如派一个实习生（子代理）去做——实习生只能看不能改，找完了把报告交给经理，经理再决定下一步。
+</div>
+
+<div class="flow-diagram">主 Agent 调用 agent 工具
+    │
+    ├─ 创建新的 TaskAgent（只有只读工具）
+    ├─ 创建子 Session（关联到父 Session）
+    ├─ 执行 agent.Run(子Session, 查询指令)
+    │       │
+    │       └─ 子 Agent Loop（独立循环）
+    │           ├─ 可以用: Glob, Grep, Ls, View, Sourcegraph
+    │           └─ 不能用: Bash, Edit, Write, Patch, Fetch
+    │
+    ├─ 等待子 Agent 完成
+    ├─ 获取子 Agent 的回复
+    ├─ 合并费用到父 Session
+    └─ 把回复作为工具结果返回给主 Agent</div>
+
+<div class="key-point">
+子代理的三个设计原则：<br>
+1. <strong>只读隔离</strong>：子代理不能修改任何文件，只能查询<br>
+2. <strong>上下文隔离</strong>：子代理有自己独立的会话，不污染主对话<br>
+3. <strong>费用透明</strong>：子代理的费用自动合并到父会话的统计中
+</div>
+
+<!-- ===== 10. MCP ===== -->
+<h2 id="mcp">10. 模块 8：MCP 协议 — 外部工具接入</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/llm/agent/mcp-tools.go</span> (202 行)</p>
+
+<span class="tag tag-info">知识模块</span>
+
+<div class="analogy">
+MCP（Model Context Protocol）就像 USB 接口——你可以插入各种外部设备（MCP 服务器），每个设备提供不同的工具（搜索 Jira、查数据库、操作 Playwright 等）。Open Code 会自动发现这些设备上有哪些工具可用，然后把它们无缝地加入到 Agent 的工具箱里。
+</div>
+
+<h3>MCP 工具发现流程</h3>
+
+<pre><code>1. 读取配置中的 MCP 服务器列表
+
+2. 对每个 MCP 服务器：
+   ├─ 如果是 Stdio 类型 → 启动子进程，通过标准输入/输出通信
+   └─ 如果是 SSE 类型  → 连接 HTTP 服务器，通过事件流通信
+
+3. 发送握手请求：
+   "我是 OpenCode，版本 X，支持 MCP 协议版本 Y"
+
+4. 发送 ListTools 请求：
+   "你有哪些工具？"
+   → 服务器返回工具列表，每个包含名称、描述、参数 Schema
+
+5. 包装每个 MCP 工具为 OpenCode 的 BaseTool：
+   MCP 工具名 "write_file" → OpenCode 名 "anthropic_mcp_write_file"
+
+6. 添加到主 Agent 的工具清单中</code></pre>
+
+<h3>MCP 工具执行流程</h3>
+
+<pre><code>AI 调用 MCP 工具 →
+    请求用户权限 →
+    创建 MCP 客户端 →
+    发送 CallTool 请求 →
+    接收结果 →
+    关闭客户端 →
+    返回结果给 Agent</code></pre>
+
+<!-- ===== 11. TUI ===== -->
+<h2 id="tui">11. 模块 9：TUI 界面 — 终端里的"App"</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/tui/tui.go</span> (966 行)</p>
+
+<span class="tag tag-info">知识模块</span>
+
+<div class="analogy">
+TUI 用的是 <strong>Bubble Tea</strong> 框架——Go 语言最流行的终端 UI 框架。它的设计理念和 React 很像：数据变了 → 自动重新渲染。但不同于网页，它渲染的是终端里的文字和颜色。
+</div>
+
+<h3>Bubble Tea 的三段式生命周期</h3>
+
+<pre><code>Init()     → 初始化：创建所有子组件（聊天页、对话框、状态栏...）
+
+Update(msg) → 响应事件：
+    收到键盘事件？  → 分发给对应组件
+    收到窗口大小变化？ → 通知所有组件调整布局
+    收到新消息事件？ → 更新消息列表、滚动到底部
+    收到权限请求？  → 弹出权限对话框
+
+View()     → 渲染：
+    1. 渲染底层页面（聊天或日志）
+    2. 加上状态栏
+    3. 如果有对话框打开 → 叠加在上面（居中显示）</code></pre>
+
+<h3>界面布局</h3>
+
+<pre><code>┌─────────────────────────────────────┬──────────────┐
+│                                     │              │
+│   消息列表（可滚动）                  │   侧边栏     │
+│   ┌─────────────────────────────┐   │   历史会话    │
+│   │ 🧑 用户: 帮我查看 main.go   │   │              │
+│   └─────────────────────────────┘   │              │
+│   ┌─────────────────────────────┐   │              │
+│   │ 🤖 助手:                    │   │              │
+│   │   1. View: main.go          │   │              │
+│   │   [文件内容...]              │   │              │
+│   │                             │   │              │
+│   │   这是程序入口...            │   │              │
+│   └─────────────────────────────┘   │              │
+│                                     │              │
+├─────────────────────────────────────┤              │
+│  输入框: [在这里输入消息...]         │              │
+└─────────────────────────────────────┴──────────────┘
+│  状态栏: 模型 claude-4-sonnet | 1245 tokens        │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h3>全局快捷键</h3>
+
+<table>
+<tr><th>快捷键</th><th>功能</th></tr>
+<tr><td>Ctrl+C</td><td>退出确认</td></tr>
+<tr><td>Ctrl+S</td><td>切换会话</td></tr>
+<tr><td>Ctrl+K</td><td>命令面板</td></tr>
+<tr><td>Ctrl+O</td><td>选择模型</td></tr>
+<tr><td>Ctrl+T</td><td>切换主题</td></tr>
+<tr><td>Ctrl+L</td><td>查看日志</td></tr>
+<tr><td>Ctrl+N</td><td>新建会话</td></tr>
+<tr><td>Ctrl+F</td><td>选择文件附件</td></tr>
+<tr><td>Esc</td><td>取消正在执行的 Agent</td></tr>
+</table>
+
+<h3>权限对话框</h3>
+
+<pre><code>┌─────────────────────────────────────────────┐
+│  Bash: 执行命令                              │
+│                                             │
+│  $ grep -r "config" src/                    │
+│                                             │
+│  ┌──────────┐  ┌────────────────┐  ┌──────┐│
+│  │ Allow(a) │  │AllowSession(s)│  │Deny(d)││
+│  └──────────┘  └────────────────┘  └──────┘│
+└─────────────────────────────────────────────┘
+
+对话框大小根据工具类型动态调整：
+- Bash/Fetch:   40% 宽 × 30% 高（命令预览较小）
+- Edit/Write:   80% 宽 × 80% 高（需要展示 diff）
+- 其他:         70% 宽 × 50% 高（标准尺寸）</code></pre>
+
+<!-- ===== 12. PubSub ===== -->
+<h2 id="pubsub">12. 模块 10：事件总线 — 模块间的"广播系统"</h2>
+
+<p class="breadcrumb">文件路径：<span class="file-ref">internal/pubsub/broker.go</span></p>
+
+<div class="analogy">
+事件总线就像广播电台：Agent 在后台处理时，产生各种事件（新消息、权限请求、完成通知），广播出去。TUI 的各个组件各自"收听"自己关心的频道，收到广播后更新界面。发送方和接收方互不认识，完全解耦。
+</div>
+
+<pre><code>事件类型只有三种：
+    Created = "创建了"  // 新消息、新会话、新权限请求
+    Updated = "更新了"  // 消息内容更新（流式输出时频繁触发）
+    Deleted = "删除了"  // 会话删除
+
+配置：
+    频道缓冲区 = 64 条事件
+    最大事件数 = 1000
+    发布模式 = 非阻塞（缓冲区满了就丢弃）
+
+订阅者收到的数据：
+    Event[T] = {
+        Type: "created" | "updated" | "deleted",
+        Payload: T  // 具体数据（消息、会话、权限请求等）
+    }</code></pre>
+
+<h3>事件流转全景</h3>
+
+<div class="flow-diagram">Agent Loop 执行
+    │
+    ├─ 创建消息 → message.Service.Create()
+    │                └─ Broker.Publish(Created, 新消息)
+    │                      └─ TUI 消息列表收到 → 添加并渲染
+    │
+    ├─ 流式更新 → message.Service.Update()
+    │                └─ Broker.Publish(Updated, 更新的消息)
+    │                      └─ TUI 消息列表收到 → 重新渲染该消息
+    │
+    ├─ 需要权限 → permission.Service.Request()
+    │                └─ Broker.Publish(Created, 权限请求)
+    │                      └─ TUI 弹出权限对话框
+    │
+    └─ Agent 完成 → agent.Publish(Created, AgentEvent)
+                       └─ TUI 状态栏更新、检查是否需要压缩</div>
+
+<!-- ===== 13. 对照表 ===== -->
+<h2 id="compare">13. 与 Claude Code 的完整对照表</h2>
+
+<table>
+<tr><th>Claude Code 概念</th><th>Open Code 对应实现</th><th>源码位置</th><th>行数参考</th></tr>
+<tr><td>Agent Loop（主循环）</td><td><code>processGeneration()</code> 的 for 循环</td><td>agent/agent.go</td><td>276-310</td></tr>
+<tr><td>System Prompt</td><td><code>GetAgentPrompt()</code> + 动态上下文注入</td><td>llm/prompt/</td><td>coder.go 全文</td></tr>
+<tr><td>Tool 注册</td><td><code>CoderAgentTools()</code> / <code>TaskAgentTools()</code></td><td>agent/tools.go</td><td>14-51</td></tr>
+<tr><td>JSON Schema 工具定义</td><td><code>ToolInfo.Parameters</code></td><td>每个 tools/*.go 的 Info()</td><td>—</td></tr>
+<tr><td>工具执行沙箱</td><td>持久 Shell + 超时 + 输出截断</td><td>tools/shell/shell.go</td><td>全文</td></tr>
+<tr><td>权限模型 (allow/deny)</td><td><code>permission.Service</code></td><td>permission/permission.go</td><td>全文 119 行</td></tr>
+<tr><td>Hook 系统</td><td>无直接对应（用 MCP 替代部分功能）</td><td>—</td><td>—</td></tr>
+<tr><td>MCP 协议</td><td><code>mcpTool</code> + Stdio/SSE 传输</td><td>agent/mcp-tools.go</td><td>全文 202 行</td></tr>
+<tr><td>子代理 (Subagent)</td><td><code>agentTool</code> + <code>TaskAgent</code></td><td>agent/agent-tool.go</td><td>全文 109 行</td></tr>
+<tr><td>上下文压缩</td><td><code>Summarize()</code> + <code>SummaryMessageID</code></td><td>agent/agent.go</td><td>535-704</td></tr>
+<tr><td>流式输出</td><td><code>StreamResponse()</code> → channel → <code>processEvent()</code></td><td>provider/ + agent/</td><td>—</td></tr>
+<tr><td>多模型支持</td><td><code>Provider</code> 接口 + 工厂模式</td><td>provider/provider.go</td><td>86-168</td></tr>
+<tr><td>CLAUDE.md 项目指令</td><td><code>getContextFromPaths()</code> 读取多个指令文件</td><td>llm/prompt/prompt.go</td><td>46-58</td></tr>
+<tr><td>/command 自定义命令</td><td>LoadCustomCommands() 从 .claude/commands/ 加载</td><td>tui/components/dialog/</td><td>—</td></tr>
+<tr><td>Token 计费</td><td><code>TrackUsage()</code> 按模型价格计算</td><td>agent/agent.go</td><td>494-514</td></tr>
+<tr><td>消息持久化</td><td>SQLite 数据库 + JSON Parts</td><td>db/ + message/</td><td>—</td></tr>
+</table>
+
+<!-- ===== 14. 实验建议 ===== -->
+<h2 id="experiments">14. 动手实验建议</h2>
+
+<div class="warning">
+注意：运行 Open Code 需要配置 LLM 的 API Key（如 Anthropic、OpenAI 等）。以下实验聚焦于<strong>阅读源码和理解架构</strong>，不需要实际运行。如果你想运行，需要先获取对应的 API Key。
+</div>
+
+<h3>实验 1：追踪 Agent Loop 的执行流程</h3>
+
+<div class="module-card">
+<p><span class="step-num">1</span> 打开 <code>internal/llm/agent/agent.go</code>，定位到第 276 行的 <code>for {</code></p>
+<p><span class="step-num">2</span> 在这行后面加一句 <code>fmt.Println("=== Agent Loop 迭代 ===")</code></p>
+<p><span class="step-num">3</span> 在第 302 行（<code>continue</code> 之前）加 <code>fmt.Printf("工具调用: %v\n", toolResults)</code></p>
+<p><span class="step-num">4</span> 在第 305 行（<code>return</code> 之前）加 <code>fmt.Println("=== Agent Loop 结束 ===")</code></p>
+<p><span class="step-num">5</span> 运行程序，观察每次交互会迭代几次循环</p>
+</div>
+
+<h3>实验 2：理解工具的 JSON Schema</h3>
+
+<div class="module-card">
+<p><span class="step-num">1</span> 打开 <code>internal/llm/tools/bash.go</code>，找到 <code>Info()</code> 方法</p>
+<p><span class="step-num">2</span> 看 <code>Parameters</code> 字段——这就是告诉 AI "bash 工具接受哪些参数"</p>
+<p><span class="step-num">3</span> 对比 <code>internal/llm/tools/edit.go</code> 的 <code>Info()</code>——注意 edit 的参数更复杂</p>
+<p><span class="step-num">4</span> 理解：AI 看到这些 Schema 后，会自动构造正确的 JSON 参数来调用工具</p>
+</div>
+
+<h3>实验 3：对比 Provider 的消息转换</h3>
+
+<div class="module-card">
+<p><span class="step-num">1</span> 打开 <code>internal/llm/provider/anthropic.go</code>，找到 <code>convertMessages()</code></p>
+<p><span class="step-num">2</span> 再打开 <code>internal/llm/provider/openai.go</code>，找到同名方法</p>
+<p><span class="step-num">3</span> 对比两者如何把同一个 <code>message.Message</code> 转换成各自 API 需要的格式</p>
+<p><span class="step-num">4</span> 思考：为什么需要 Provider 抽象层？如果没有它，每加一个新模型需要改多少代码？</p>
+</div>
+
+<h3>实验 4：阅读系统提示词</h3>
+
+<div class="module-card">
+<p><span class="step-num">1</span> 打开 <code>internal/llm/prompt/coder.go</code></p>
+<p><span class="step-num">2</span> 完整阅读 <code>CoderPrompt()</code> 函数返回的长字符串</p>
+<p><span class="step-num">3</span> 注意：这段文字的每一句话都在塑造 AI 的行为——语气、主动性、代码风格、安全规则</p>
+<p><span class="step-num">4</span> 思考：如果你想让 AI 更啰嗦或更简洁，需要改哪句话？</p>
+</div>
+
+<h3>实验 5：追踪权限流程</h3>
+
+<div class="module-card">
+<p><span class="step-num">1</span> 打开 <code>internal/permission/permission.go</code>（只有 119 行）</p>
+<p><span class="step-num">2</span> 阅读 <code>Request()</code> 方法——注意它是如何"阻塞等待"用户响应的</p>
+<p><span class="step-num">3</span> 再看 <code>internal/tui/tui.go</code> 中搜索 <code>PermissionRequest</code>——看 TUI 如何响应</p>
+<p><span class="step-num">4</span> 理解：权限请求是一个从 Agent → PubSub → TUI → 用户 → 回 Agent 的完整闭环</p>
+</div>
+
+</div>
+
+<footer>
+  <p>Open Code 源码学习指南 | 基于 <a href="https://github.com/opencode-ai/opencode" style="color:var(--accent)">opencode-ai/opencode</a> 源码分析</p>
+  <p>生成时间：2026-03-13 | 项目构建验证：Go 1.24.1 ✓</p>
+</footer>
+
+</body>
+</html>
