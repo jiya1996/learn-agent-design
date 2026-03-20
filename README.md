@@ -12,3 +12,9 @@
 | 3 | [learn-claude-code](https://github.com/shareAI-lab/learn-claude-code) | [learn-claude-code-learning-guide.html](./learn-claude-code-learning-guide.html) |
 | 4 | [openclaw](https://github.com/openclaw/openclaw) | [openclaw-learning-guide.html](./openclaw-learning-guide.html) |
 
+## 跨项目对比分析
+
+| # | 对比主题 | 学习指南 |
+|---|----------|----------|
+| 1 | Claude Code vs OpenCode vs OpenClaw — 源码级架构对比 × Agent 设计指南 | [claude-code-vs-opencode-vs-openclaw-learning-guide.html](./claude-code-vs-opencode-vs-openclaw-learning-guide.html) |
+

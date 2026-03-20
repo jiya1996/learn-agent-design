@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code vs OpenCode vs OpenClaw — 源码级架构对比 × Agent 设计指南</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F8F8FC;--bg2:#EEEDF5;--bg3:#E4E2F0;--bg4:#DBD8EC;
+  --text:#2E2B3D;--text2:#7E7A92;--text3:#9E9AB0;
+  --accent:#7C3AED;--accent2:#6D28D9;
+  --border:#CCC8E0;--border2:#DBD8EC;
+  --code-bg:#1E1B2E;--card:#EEEDF5;
+  --sidebar-w:280px;--topbar-h:52px;
+  --cc:#7C3AED;--oc:#2563EB;--ow:#D97706;
+}
+html{scroll-behavior:smooth;font-size:15px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+#topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--bg2);border-bottom:1px solid var(--border);z-index:1000;display:flex;align-items:center;padding:0 24px}
+#topbar .logo{font-size:1.15rem;font-weight:700;color:var(--accent);white-space:nowrap}
+#topbar .logo span{color:var(--text)}
+#progress-wrap{flex:1;margin:0 24px;height:8px;display:flex;gap:3px;align-items:stretch}
+.seg{flex:1;border-radius:2px;background:var(--bg4);transition:background .3s;cursor:pointer}
+.seg.done{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.seg:hover{opacity:.8}
+.seg-divider{width:6px;flex-shrink:0}
+#progress-text{font-size:.85rem;color:var(--text2);white-space:nowrap;min-width:60px;text-align:right}
+#menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;margin-right:12px}
+
+#sidebar{position:fixed;top:var(--topbar-h);left:0;width:var(--sidebar-w);height:calc(100vh - var(--topbar-h));background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;z-index:900;padding:16px 0;transition:transform .3s ease}
+#sidebar::-webkit-scrollbar{width:4px}#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.nav-section{padding:8px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:12px}
+.nav-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:all .2s;font-size:.9rem;color:var(--text2);gap:10px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{border-left-color:var(--accent);color:var(--accent);background:rgba(124,58,237,.08)}
+.nav-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.7rem;font-weight:700;background:var(--bg4);color:var(--text3);flex-shrink:0}
+.nav-item.active .nav-num{background:var(--accent);color:var(--bg)}
+.nav-item.done .nav-num{background:var(--accent2);color:var(--bg)}
+.nav-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-check{font-size:.9rem;color:var(--accent2);opacity:0;transition:opacity .2s}.nav-item.done .nav-check{opacity:1}
+
+#main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);padding:32px 40px 80px;max-width:1020px}
+
+.section{margin-bottom:64px;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
+.section.visible{opacity:1;transform:none}
+.section-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+.section-num{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-title{font-size:1.6rem;font-weight:700}
+.section-subtitle{font-size:.95rem;color:var(--text2);margin-top:2px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.card-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .icon{font-size:1.2rem}
+
+.concept-card{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(109,40,217,.06));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:20px 24px;margin-bottom:20px;font-size:1.05rem}
+.concept-card::before{content:'核心洞察';display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px;font-weight:600}
+
+.code-wrap{position:relative;margin:12px 0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--bg4);font-size:.75rem;color:var(--text3)}
+.code-lang{font-weight:600;text-transform:uppercase}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;transition:all .2s}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+pre{margin:0;padding:16px;background:var(--code-bg);overflow-x:auto;font-size:.82rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace}
+pre code{color:#E0E0EC}
+p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--accent)}
+
+.accordion{border:1px solid var(--border);border-radius:8px;margin:12px 0;overflow:hidden}
+.acc-header{display:flex;align-items:center;padding:12px 16px;background:var(--bg3);cursor:pointer;user-select:none;gap:8px;font-weight:600;font-size:.95rem;transition:background .2s}
+.acc-header:hover{background:var(--bg4)}
+.acc-arrow{transition:transform .3s;font-size:.7rem;color:var(--text3)}
+.acc-header.open .acc-arrow{transform:rotate(90deg)}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.acc-body.open{max-height:8000px}
+.acc-content{padding:16px}
+
+.warning-box{background:rgba(124,58,237,.05);border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:14px 18px;margin:16px 0;font-size:.95rem;color:var(--text2)}
+.warning-box::before{content:'⚠️ 关键差异';display:block;font-weight:700;color:var(--accent);margin-bottom:4px;font-size:.85rem}
+.tip-box{background:rgba(109,40,217,.05);border-left:4px solid var(--accent2);border-radius:0 8px 8px 0;padding:14px 18px;margin:16px 0;font-size:.95rem;color:var(--text2)}
+.tip-box::before{content:'💡 设计启示';display:block;font-weight:700;color:var(--accent2);margin-bottom:4px;font-size:.85rem}
+
+.flow{display:flex;align-items:center;gap:8px;margin:16px 0;flex-wrap:wrap}
+.flow-step{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:110px;text-align:center}
+.step-title{font-weight:700;font-size:.85rem;color:var(--accent)}
+.step-desc{font-size:.78rem;color:var(--text2);margin-top:4px}
+.flow-arrow{font-size:1.2rem;color:var(--accent);font-weight:700}
+
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.85rem}
+th{background:var(--bg3);color:var(--accent);font-weight:600;text-align:left;padding:10px 14px;border:1px solid var(--border)}
+td{padding:10px 14px;border:1px solid var(--border);color:var(--text2)}
+tr:hover td{background:rgba(124,58,237,.03)}
+
+/* Product badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;letter-spacing:.03em;vertical-align:middle}
+.badge-cc{background:rgba(124,58,237,.12);color:var(--cc)}
+.badge-oc{background:rgba(37,99,235,.1);color:var(--oc)}
+.badge-ow{background:rgba(217,119,6,.1);color:var(--ow)}
+
+/* Three-col compare */
+.cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.cmp-card{border-radius:10px;padding:16px;border:1px solid var(--border);background:var(--card)}
+.cmp-card h4{font-size:.9rem;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.cmp-card.cc{border-top:3px solid var(--cc)}
+.cmp-card.oc{border-top:3px solid var(--oc)}
+.cmp-card.ow{border-top:3px solid var(--ow)}
+.cmp-card ul{margin:0;padding-left:16px}
+.cmp-card li{font-size:.82rem;margin-bottom:4px}
+
+/* Arch diagram */
+.arch-diagram{background:var(--code-bg);border-radius:12px;padding:24px;margin:20px 0;overflow-x:auto}
+.arch-layer{display:flex;align-items:stretch;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.arch-box{border-radius:8px;padding:12px 16px;flex:1;min-width:120px;text-align:center}
+.arch-box .ab-title{font-weight:700;font-size:.85rem;margin-bottom:2px}
+.arch-box .ab-desc{font-size:.7rem;opacity:.8}
+.arch-box.core{background:rgba(124,58,237,.25);border:1px solid rgba(124,58,237,.5);color:#E0E0EC}
+.arch-box.tool{background:rgba(109,40,217,.2);border:1px solid rgba(109,40,217,.4);color:#E0E0EC}
+.arch-box.infra{background:rgba(80,60,140,.2);border:1px solid rgba(80,60,140,.4);color:#E0E0EC}
+.arch-box.ext{background:rgba(60,50,100,.25);border:1px solid rgba(60,50,100,.5);color:#E0E0EC}
+.arch-arrow{text-align:center;color:rgba(124,58,237,.6);font-size:1rem;margin:4px 0;letter-spacing:8px}
+.arch-label{color:var(--text3);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;padding-left:4px}
+
+/* Score bar */
+.score-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:.85rem}
+.score-label{width:100px;color:var(--text2);text-align:right;flex-shrink:0}
+.score-bars{flex:1;display:flex;gap:4px;align-items:center}
+.score-bar{height:14px;border-radius:3px;transition:width .6s}
+.score-bar.cc{background:var(--cc)}
+.score-bar.oc{background:var(--oc)}
+.score-bar.ow{background:var(--ow)}
+.score-val{font-size:.75rem;color:var(--text3);width:24px;text-align:center}
+
+/* Timeline */
+.timeline{position:relative;padding-left:28px;margin:16px 0}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent),var(--accent2))}
+.tl-item{position:relative;margin-bottom:18px;padding-left:20px}
+.tl-item::before{content:'';position:absolute;left:-24px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.tl-item .tl-title{font-weight:700;font-size:.9rem}
+.tl-item .tl-phase{font-size:.7rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.tl-item .tl-desc{font-size:.82rem;color:var(--text2);margin-top:4px}
+
+/* Decision matrix */
+.decision-card{background:linear-gradient(135deg,rgba(124,58,237,.04),rgba(109,40,217,.04));border:1px solid rgba(124,58,237,.12);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.decision-card h4{color:var(--accent);margin-bottom:10px}
+.decision-card p{font-size:.9rem;color:var(--text2);margin-bottom:8px}
+
+.learn-check{display:flex;align-items:center;gap:10px;margin-top:24px;padding:14px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .2s;user-select:none}
+.learn-check:hover{border-color:var(--accent)}
+.learn-check input{display:none}
+.check-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.learn-check input:checked~.check-box{background:var(--accent);border-color:var(--accent)}
+.learn-check input:checked~.check-box::after{content:'✓';color:#fff;font-size:.8rem;font-weight:700}
+.check-label{font-size:.9rem;color:var(--text2)}
+
+#quickref{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;margin-top:48px}
+#quickref h2{font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:20px}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.qr-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px}
+.qr-card .qr-title{font-weight:700;font-size:.9rem;color:var(--accent);margin-bottom:6px}
+.qr-card .qr-body{font-size:.82rem;color:var(--text2);line-height:1.6}
+
+@media(max-width:900px){
+  #menu-toggle{display:block}
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #main{margin-left:0;padding:24px 16px 60px}
+  .cmp-grid{grid-template-columns:1fr}
+  .flow{flex-direction:column}.flow-arrow{transform:rotate(90deg)}
+}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+#overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:800}
+#overlay.show{display:block}
+p{margin-bottom:12px}
+ul,ol{margin:8px 0 12px 20px}
+li{margin-bottom:5px;font-size:.88rem;color:var(--text2)}
+h3{font-size:1.12rem;font-weight:700;margin:20px 0 12px;color:var(--text)}
+h4{font-size:.98rem;font-weight:600;margin:16px 0 8px;color:var(--text)}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="logo">CC vs OC vs OW <span>源码级架构对比</span></div>
+  <div id="progress-wrap"></div>
+  <div id="progress-text">0/11</div>
+</div>
+<nav id="sidebar"></nav>
+<div id="overlay" onclick="toggleSidebar()"></div>
+
+<div id="main">
+
+<!-- ==================== S0: OVERVIEW ==================== -->
+<section id="s0" class="section">
+  <div class="section-header">
+    <div class="section-num">00</div>
+    <div><div class="section-title">三大产品全景</div>
+    <div class="section-subtitle">Claude Code vs OpenCode vs OpenClaw — 定位、技术栈、核心差异</div></div>
+  </div>
+
+  <div class="concept-card">
+    三个产品解决同一个核心问题 —— <strong>"如何让 LLM 在真实环境中自主行动"</strong> —— 但面向不同场景：Claude Code 面向专业开发者终端，OpenCode 是其 Go 开源复刻，OpenClaw 则是多渠道个人 AI 助手。
+  </div>
+
+  <div class="cmp-grid">
+    <div class="cmp-card cc">
+      <h4><span class="badge badge-cc">CLAUDE CODE</span> Anthropic 官方</h4>
+      <ul>
+        <li><strong>语言</strong>：TypeScript (Node.js 18+)</li>
+        <li><strong>形态</strong>：CLI + IDE 插件</li>
+        <li><strong>源码</strong>：编译后 12.1MB cli.js（未开源）</li>
+        <li><strong>模型</strong>：Claude 专属（Opus/Sonnet/Haiku）</li>
+        <li><strong>定位</strong>：专业开发者的 AI 编程助手</li>
+        <li><strong>特色</strong>：Agent Teams、Hooks、Memory 系统、MCP 生态</li>
+      </ul>
+    </div>
+    <div class="cmp-card oc">
+      <h4><span class="badge badge-oc">OPENCODE</span> Go 开源复刻</h4>
+      <ul>
+        <li><strong>语言</strong>：Go 1.24</li>
+        <li><strong>形态</strong>：TUI 终端应用</li>
+        <li><strong>源码</strong>：完全开源</li>
+        <li><strong>模型</strong>：多 Provider（Anthropic/OpenAI/Gemini/Bedrock/...）</li>
+        <li><strong>定位</strong>：Claude Code 的开源替代</li>
+        <li><strong>特色</strong>：LSP 集成、多 Provider、SQLite 持久化</li>
+      </ul>
+    </div>
+    <div class="cmp-card ow">
+      <h4><span class="badge badge-ow">OPENCLAW</span> 多渠道助手</h4>
+      <ul>
+        <li><strong>语言</strong>：TypeScript (Node.js 22+)</li>
+        <li><strong>形态</strong>：Gateway 守护进程 + 多客户端</li>
+        <li><strong>源码</strong>：开源</li>
+        <li><strong>模型</strong>：可配置</li>
+        <li><strong>定位</strong>：个人全能 AI 助手（20+ 渠道）</li>
+        <li><strong>特色</strong>：WhatsApp/Telegram/Slack、语音、Canvas、插件系统</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>架构层次对比</h3>
+  <div class="arch-diagram">
+    <div class="arch-label">接入层 — 用户如何触达 Agent</div>
+    <div class="arch-layer">
+      <div class="arch-box ext"><div class="ab-title">CLI + IDE</div><div class="ab-desc">Claude Code / OpenCode</div></div>
+      <div class="arch-box ext"><div class="ab-title">TUI (Bubble Tea)</div><div class="ab-desc">OpenCode 独有</div></div>
+      <div class="arch-box ext"><div class="ab-title">20+ 消息渠道</div><div class="ab-desc">OpenClaw 独有</div></div>
+    </div>
+    <div class="arch-arrow">▼ ▼ ▼</div>
+    <div class="arch-label">控制层 — 请求路由与会话管理</div>
+    <div class="arch-layer">
+      <div class="arch-box infra"><div class="ab-title">Session Manager</div><div class="ab-desc">所有产品共有</div></div>
+      <div class="arch-box infra"><div class="ab-title">Permission Gate</div><div class="ab-desc">权限守卫</div></div>
+      <div class="arch-box infra"><div class="ab-title">WebSocket RPC</div><div class="ab-desc">OpenClaw Gateway</div></div>
+    </div>
+    <div class="arch-arrow">▼ ▼ ▼</div>
+    <div class="arch-label">核心层 — Agent 运行时</div>
+    <div class="arch-layer">
+      <div class="arch-box core"><div class="ab-title">Agent Loop</div><div class="ab-desc">核心 while 循环</div></div>
+      <div class="arch-box core"><div class="ab-title">Tool Dispatch</div><div class="ab-desc">工具路由执行</div></div>
+      <div class="arch-box core"><div class="ab-title">Streaming</div><div class="ab-desc">流式事件处理</div></div>
+    </div>
+    <div class="arch-arrow">▼ ▼ ▼</div>
+    <div class="arch-label">基础层 — LLM Provider 与持久化</div>
+    <div class="arch-layer">
+      <div class="arch-box tool"><div class="ab-title">LLM Provider</div><div class="ab-desc">模型调用抽象</div></div>
+      <div class="arch-box tool"><div class="ab-title">Persistence</div><div class="ab-desc">JSONL / SQLite</div></div>
+      <div class="arch-box tool"><div class="ab-title">MCP / Plugin</div><div class="ab-desc">外部扩展</div></div>
+    </div>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s0" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三大产品的定位和架构层次差异</span></label>
+</section>
+
+<!-- ==================== S1: AGENT LOOP ==================== -->
+<section id="s1" class="section">
+  <div class="section-header">
+    <div class="section-num">01</div>
+    <div><div class="section-title">Agent Loop — 核心循环的三种实现</div>
+    <div class="section-subtitle">从源码看：同一个本质，三种工程权衡</div></div>
+  </div>
+
+  <div class="concept-card">
+    Agent Loop 的本质永远是 <code>while stop_reason == "tool_use"</code>。但在生产中，这个循环要处理<strong>流式输出、取消、权限阻塞、并发控制、错误恢复</strong>等真实世界的复杂性。三个产品的实现路径截然不同。
+  </div>
+
+  <h3>Claude Code 的实现（TypeScript，源自 cli.js 逆向 + SDK 类型定义）</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🟣</span> <span class="badge badge-cc">CLAUDE CODE</span> 层级式 Agent 系统</div>
+    <p>Claude Code 不是单一循环，而是一个<strong>层级式 Agent 体系</strong>：</p>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">TypeScript (架构伪码，基于 sdk-tools.d.ts 还原)</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code><span style="color:#6A7088">// Claude Code 的核心 Agent 循环</span>
+<span style="color:#9E8CFC">async function</span> <span style="color:#E0C97F">agentLoop</span>(messages, tools, hooks) {
+  <span style="color:#9E8CFC">while</span> (<span style="color:#E0C97F">true</span>) {
+    <span style="color:#6A7088">// 1. 流式调用 LLM</span>
+    <span style="color:#9E8CFC">const</span> stream = <span style="color:#9E8CFC">await</span> claude.messages.stream({
+      model, system: buildSystemPrompt(hooks),
+      messages, tools, max_tokens
+    });
+
+    <span style="color:#6A7088">// 2. 实时处理流式事件（逐 token 显示）</span>
+    <span style="color:#9E8CFC">const</span> response = <span style="color:#9E8CFC">await</span> processStream(stream);
+    messages.push({ role: <span style="color:#D27E99">"assistant"</span>, content: response.content });
+
+    <span style="color:#6A7088">// 3. 判断是否结束</span>
+    <span style="color:#9E8CFC">if</span> (response.stop_reason !== <span style="color:#D27E99">"tool_use"</span>) <span style="color:#9E8CFC">return</span>;
+
+    <span style="color:#6A7088">// 4. 对每个工具调用：Hook → 权限 → 执行 → Hook</span>
+    <span style="color:#9E8CFC">const</span> results = [];
+    <span style="color:#9E8CFC">for</span> (<span style="color:#9E8CFC">const</span> toolCall <span style="color:#9E8CFC">of</span> response.toolCalls) {
+      <span style="color:#9E8CFC">await</span> hooks.trigger(<span style="color:#D27E99">"PreToolUse"</span>, toolCall);   <span style="color:#6A7088">// Hook 可以拦截</span>
+      <span style="color:#9E8CFC">const</span> permitted = <span style="color:#9E8CFC">await</span> checkPermission(toolCall); <span style="color:#6A7088">// 阻塞等待用户</span>
+      <span style="color:#9E8CFC">if</span> (!permitted) { results.push(errorResult); <span style="color:#9E8CFC">continue</span>; }
+
+      <span style="color:#9E8CFC">const</span> output = <span style="color:#9E8CFC">await</span> executeTool(toolCall);       <span style="color:#6A7088">// 分发执行</span>
+      <span style="color:#9E8CFC">await</span> hooks.trigger(<span style="color:#D27E99">"PostToolUse"</span>, toolCall, output);
+      results.push({ tool_use_id: toolCall.id, content: output });
+    }
+
+    <span style="color:#6A7088">// 5. 工具结果作为 user 消息喂回</span>
+    messages.push({ role: <span style="color:#D27E99">"user"</span>, content: results });
+  }
+}</code></pre>
+    </div>
+    <p><strong>独特设计</strong>：</p>
+    <ul>
+      <li><strong>Hook 系统包裹每次工具调用</strong> — <code>PreToolUse</code> / <code>PostToolUse</code> 让用户的 Python/Shell 脚本拦截和修改工具行为</li>
+      <li><strong>Sub-Agent 工具</strong> — 循环中的 <code>Agent</code> 工具会递归创建新的 Agent Loop 实例，拥有独立 messages[]</li>
+      <li><strong>Plan Mode</strong> — 特殊模式下 Agent 只生成计划不执行，用户审批后切换到执行模式</li>
+      <li><strong>Context Auto-Compact</strong> — 接近 token 上限时自动压缩历史，通过 <code>PreCompact</code> Hook 通知</li>
+    </ul>
+  </div>
+
+  <h3>OpenCode 的实现（Go，完全开源）</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🔵</span> <span class="badge badge-oc">OPENCODE</span> <code>agent.go:processGeneration()</code></div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">Go (实际源码简化)</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code><span style="color:#9E8CFC">func</span> (a *agent) <span style="color:#E0C97F">processGeneration</span>(ctx context.Context, sessionID string) {
+    <span style="color:#6A7088">// 加载消息历史（支持 Summary 续接）</span>
+    msgs := a.messages.ListBySession(ctx, sessionID)
+    <span style="color:#9E8CFC">if</span> session.SummaryMessageID != <span style="color:#D27E99">""</span> {
+        msgs = truncateFromSummary(msgs)  <span style="color:#6A7088">// 从摘要点截断</span>
+    }
+
+    <span style="color:#9E8CFC">for</span> {
+        <span style="color:#9E8CFC">select</span> {
+        <span style="color:#9E8CFC">case</span> &lt;-ctx.Done(): <span style="color:#9E8CFC">return</span>  <span style="color:#6A7088">// 取消支持</span>
+        <span style="color:#9E8CFC">default</span>:
+        }
+
+        <span style="color:#6A7088">// 1. 流式调用 Provider（多 Provider 抽象）</span>
+        events := a.provider.StreamResponse(ctx, msgs, a.tools)
+        assistantMsg := streamAndHandleEvents(events)  <span style="color:#6A7088">// 实时处理</span>
+
+        <span style="color:#6A7088">// 2. 检查是否需要继续</span>
+        <span style="color:#9E8CFC">if</span> assistantMsg.FinishReason() != FinishReasonToolUse {
+            a.messages.Save(ctx, assistantMsg)
+            <span style="color:#9E8CFC">return</span>
+        }
+
+        <span style="color:#6A7088">// 3. 顺序执行工具（带权限阻塞）</span>
+        toolResults := make([]ToolResult, len(assistantMsg.ToolCalls()))
+        <span style="color:#9E8CFC">for</span> i, tc := <span style="color:#9E8CFC">range</span> assistantMsg.ToolCalls() {
+            tool := findTool(a.tools, tc.Name)  <span style="color:#6A7088">// O(N) 线性搜索</span>
+            <span style="color:#9E8CFC">if</span> !a.permissions.Request(tc) {   <span style="color:#6A7088">// 阻塞！等用户批准</span>
+                cancelRemaining(toolResults[i:])
+                <span style="color:#9E8CFC">break</span>
+            }
+            result, _ := tool.Run(ctx, tc)
+            toolResults[i] = result
+        }
+
+        <span style="color:#6A7088">// 4. 追加到历史，继续循环</span>
+        msgs = append(msgs, assistantMsg, toolResultsMsg)
+    }
+}</code></pre>
+    </div>
+    <p><strong>独特设计</strong>：</p>
+    <ul>
+      <li><strong>Context 取消传播</strong> — Go 的 <code>context.Context</code> 原生支持取消链，<code>sync.Map</code> 追踪每个 session 的 cancel func</li>
+      <li><strong>Permission 通道阻塞</strong> — <code>make(chan bool, 1)</code> + PubSub，TUI 弹窗响应后通过 channel 解除阻塞</li>
+      <li><strong>Summary 续接</strong> — <code>SummaryMessageID</code> 字段标记摘要位置，下次加载时从该点截断历史</li>
+      <li><strong>LSP 诊断等待</strong> — 编辑文件后等待语言服务器返回诊断信息，作为 metadata 附加到工具结果</li>
+    </ul>
+  </div>
+
+  <h3>OpenClaw 的实现（TypeScript，事件驱动）</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🟠</span> <span class="badge badge-ow">OPENCLAW</span> <code>agent-command.ts</code> (1333 行)</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">TypeScript (架构简化)</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code><span style="color:#9E8CFC">async function</span> <span style="color:#E0C97F">agentCommandInternal</span>(opts: AgentCommandOpts) {
+  <span style="color:#6A7088">// 1. 加载 JSONL 会话 + Bootstrap 文件</span>
+  <span style="color:#9E8CFC">const</span> session = loadSessionTranscript(opts.sessionKey);
+  <span style="color:#9E8CFC">const</span> bootstrap = <span style="color:#9E8CFC">await</span> applyBootstrapHookOverrides({
+    files: [AGENTS_MD, SOUL_MD, IDENTITY_MD, USER_MD],  <span style="color:#6A7088">// 插件可修改！</span>
+  });
+
+  <span style="color:#6A7088">// 2. 解析模型（支持 fallback chain）</span>
+  <span style="color:#9E8CFC">const</span> model = resolveModelWithFallback(opts.modelOverride, cfg);
+
+  <span style="color:#6A7088">// 3. 通过 SessionActorQueue 保证 per-session 串行</span>
+  <span style="color:#9E8CFC">await</span> sessionActorQueue.run(opts.sessionKey, <span style="color:#9E8CFC">async</span> () => {
+    <span style="color:#6A7088">// 4. 选择运行时：嵌入式 Pi 或 ACP 子进程</span>
+    <span style="color:#9E8CFC">if</span> (useAcp) {
+      <span style="color:#9E8CFC">await</span> spawnAcpDirect(opts);  <span style="color:#6A7088">// 独立进程</span>
+    } <span style="color:#9E8CFC">else</span> {
+      <span style="color:#9E8CFC">await</span> runEmbeddedPiAgent({   <span style="color:#6A7088">// 嵌入式运行</span>
+        session, bootstrap, model, tools,
+        onEvent: (event) => {
+          <span style="color:#6A7088">// 5. 实时流式事件 → WebSocket → 客户端</span>
+          gateway.emit(<span style="color:#D27E99">"agent:stream"</span>, event);
+        }
+      });
+    }
+  });
+}</code></pre>
+    </div>
+    <p><strong>独特设计</strong>：</p>
+    <ul>
+      <li><strong>SessionActorQueue</strong> — 每个 session 同一时间只能跑一个请求，防止 JSONL 写入竞态</li>
+      <li><strong>Lane 并发控制</strong> — Main/Cron/Subagent 三种 lane 有独立并发上限（如 main:8, cron:1, subagent:10）</li>
+      <li><strong>双运行时</strong> — 嵌入式 Pi（进程内）vs ACP 子进程（隔离），可按需切换</li>
+      <li><strong>Bootstrap Hook</strong> — 插件在 Agent 看到 AGENTS.md/SOUL.md 之前就能修改内容</li>
+      <li><strong>Model Fallback Chain</strong> — 主模型失败自动切换备选模型</li>
+    </ul>
+  </div>
+
+  <div class="warning-box">
+    <strong>关键差异：工具执行方式</strong><br>
+    Claude Code 和 OpenCode 都是<strong>顺序执行</strong>工具（一个接一个），OpenClaw 的 Pi 运行时支持<strong>并行执行</strong>多个工具。这影响了延迟和复杂度的权衡。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s1" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种 Agent Loop 实现的差异和权衡</span></label>
+</section>
+
+<!-- ==================== S2: TOOL SYSTEM ==================== -->
+<section id="s2" class="section">
+  <div class="section-header">
+    <div class="section-num">02</div>
+    <div><div class="section-title">Tool System — 三种工具架构的源码对比</div>
+    <div class="section-subtitle">接口设计、分发机制、安全边界、扩展能力</div></div>
+  </div>
+
+  <div class="concept-card">
+    工具系统的设计决定了 Agent 的能力边界。核心问题：<strong>如何定义工具？如何安全执行？如何动态扩展？</strong>
+  </div>
+
+  <h3>工具接口对比</h3>
+  <div class="cmp-grid">
+    <div class="cmp-card cc">
+      <h4><span class="badge badge-cc">CC</span> sdk-tools.d.ts</h4>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">TS</span></div>
+      <pre><code><span style="color:#6A7088">// 每个工具是一个 TypeScript 联合类型</span>
+type ToolInput =
+  | BashInput
+  | FileReadInput
+  | FileEditInput
+  | GlobInput
+  | GrepInput
+  | AgentInput      <span style="color:#6A7088">// 子代理！</span>
+  | WebFetchInput
+  | McpInput        <span style="color:#6A7088">// MCP 动态工具</span>
+  | ...</code></pre></div>
+    </div>
+    <div class="cmp-card oc">
+      <h4><span class="badge badge-oc">OC</span> tools.go</h4>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">Go</span></div>
+      <pre><code>type BaseTool <span style="color:#9E8CFC">interface</span> {
+    Info() ToolInfo
+    Run(ctx context.Context,
+        call ToolCall,
+    ) (ToolResponse, error)
+}
+<span style="color:#6A7088">// 分发：O(N) 线性搜索</span>
+<span style="color:#9E8CFC">for</span> _, t := <span style="color:#9E8CFC">range</span> tools {
+    <span style="color:#9E8CFC">if</span> t.Info().Name == name {
+        tool = t; <span style="color:#9E8CFC">break</span>
+    }
+}</code></pre></div>
+    </div>
+    <div class="cmp-card ow">
+      <h4><span class="badge badge-ow">OW</span> tools/</h4>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">TS</span></div>
+      <pre><code>type AnyAgentTool = {
+  name: string
+  description: string
+  ownerOnly?: boolean  <span style="color:#6A7088">// 权限标记</span>
+  parameters: TSchema  <span style="color:#6A7088">// TypeBox</span>
+  execute: (id, args)
+    => Promise&lt;ToolResult&gt;
+}
+<span style="color:#6A7088">// 插件动态注入工具</span></code></pre></div>
+    </div>
+  </div>
+
+  <h3>Bash 工具的安全实现对比</h3>
+  <table>
+    <tr><th>安全机制</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td>命令过滤</td><td>Hook 拦截 + 模式匹配允许列表</td><td>硬编码禁止列表 (curl/wget/nc/telnet)</td><td>FS Policy + exec allowlist</td></tr>
+    <tr><td>只读白名单</td><td>permissions 配置里的 allow 列表</td><td>硬编码安全命令 (git status/ls/ps)</td><td>tool-fs-policy.ts 规则</td></tr>
+    <tr><td>超时控制</td><td>max 600s (10分钟)</td><td>默认 60s，max 600s</td><td>可配置</td></tr>
+    <tr><td>输出截断</td><td>截断到安全长度</td><td>30KB (首尾各 15KB)</td><td>Token 估算截断</td></tr>
+    <tr><td>沙箱模式</td><td><code>dangerouslyDisableSandbox</code> 参数</td><td>无</td><td>per-session sandbox 可选</td></tr>
+  </table>
+
+  <h3>工具扩展机制对比</h3>
+  <table>
+    <tr><th>扩展方式</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td>MCP 协议</td><td>原生支持 (Stdio + SSE)</td><td>支持 (mcp-go 库)</td><td>通过 ACP 桥接</td></tr>
+    <tr><td>自定义工具</td><td>通过 MCP Server</td><td>实现 BaseTool 接口</td><td>插件 agentTools 注入</td></tr>
+    <tr><td>动态发现</td><td>启动时 + 运行时刷新</td><td>仅启动时（无刷新机制）</td><td>Plugin 热加载</td></tr>
+    <tr><td>渠道工具</td><td>无</td><td>无</td><td>每个渠道插件提供专属工具</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>设计选择的权衡</strong>：Claude Code 选择闭源 + MCP 开放生态，让第三方通过协议扩展；OpenCode 选择开源 + Go 接口，开发者可以直接 fork 加工具；OpenClaw 选择插件架构，每个渠道自带工具。<strong>没有对错，取决于你的用户是谁。</strong>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s2" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种工具系统的设计差异和安全机制</span></label>
+</section>
+
+<!-- ==================== S3: PERMISSION ==================== -->
+<section id="s3" class="section">
+  <div class="section-header">
+    <div class="section-num">03</div>
+    <div><div class="section-title">Permission System — 权限模型的三种哲学</div>
+    <div class="section-subtitle">从"完全信任"到"逐项审批"的权衡</div></div>
+  </div>
+
+  <div class="concept-card">
+    权限系统是 Agent 产品最关键的信任边界。核心矛盾：<strong>自主性越高体验越好，但风险也越大</strong>。三个产品做出了完全不同的选择。
+  </div>
+
+  <div class="cmp-grid">
+    <div class="cmp-card cc">
+      <h4><span class="badge badge-cc">CC</span> 多模式 + Hook 拦截</h4>
+      <ul>
+        <li><strong>Plan Mode</strong>：先展示计划，用户审批后执行</li>
+        <li><strong>Accept-Edits</strong>：文件修改需确认</li>
+        <li><strong>BypassPermissions</strong>：完全自主（高级用户）</li>
+        <li><strong>Hook 拦截</strong>：PreToolUse 脚本可以 allow/deny/ask</li>
+        <li><strong>配置式规则</strong>：JSON 中定义 allow/ask/deny 列表</li>
+      </ul>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">JSON</span></div>
+      <pre><code>{
+  <span style="color:#D27E99">"permissions"</span>: {
+    <span style="color:#D27E99">"allow"</span>: [<span style="color:#D27E99">"Read"</span>, <span style="color:#D27E99">"Glob"</span>, <span style="color:#D27E99">"Grep"</span>],
+    <span style="color:#D27E99">"deny"</span>: [<span style="color:#D27E99">"Bash(rm -rf *)"</span>]
+  }
+}</code></pre></div>
+    </div>
+    <div class="cmp-card oc">
+      <h4><span class="badge badge-oc">OC</span> Channel 阻塞式</h4>
+      <ul>
+        <li><strong>同步阻塞</strong>：<code>make(chan bool, 1)</code></li>
+        <li><strong>PubSub → TUI</strong>：请求发布到 UI</li>
+        <li><strong>缓存机制</strong>：Session 级批准缓存</li>
+        <li><strong>Auto-approve</strong>：<code>AutoApproveSession(id)</code></li>
+        <li><strong>安全命令白名单</strong>：硬编码只读命令</li>
+      </ul>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">Go</span></div>
+      <pre><code><span style="color:#6A7088">// 阻塞直到用户批准</span>
+respCh := make(<span style="color:#9E8CFC">chan</span> <span style="color:#9E8CFC">bool</span>, 1)
+s.pendingRequests.Store(id, respCh)
+s.Publish(CreatedEvent, req)
+resp := &lt;-respCh  <span style="color:#6A7088">// 阻塞！</span>
+<span style="color:#9E8CFC">return</span> resp</code></pre></div>
+    </div>
+    <div class="cmp-card ow">
+      <h4><span class="badge badge-ow">OW</span> 单用户信任模型</h4>
+      <ul>
+        <li><strong>信任前提</strong>：认证通过 = 完全信任</li>
+        <li><strong>ownerOnly</strong>：关键工具标记限主人</li>
+        <li><strong>设备配对</strong>：Node 需要显式批准</li>
+        <li><strong>FS Policy</strong>：文件操作策略检查</li>
+        <li><strong>Exec Allowlist</strong>：命令执行白名单</li>
+      </ul>
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">TS</span></div>
+      <pre><code><span style="color:#6A7088">// 单用户模型：认证 = 信任</span>
+type AnyAgentTool = {
+  ownerOnly?: <span style="color:#9E8CFC">boolean</span>
+  <span style="color:#6A7088">// true → 只有 owner 可调用</span>
+  <span style="color:#6A7088">// false → 任何已认证用户</span>
+}</code></pre></div>
+    </div>
+  </div>
+
+  <div class="warning-box">
+    <strong>本质区别</strong>：Claude Code 和 OpenCode 面向<strong>交互式场景</strong>（人在终端前），所以用"弹窗确认"；OpenClaw 面向<strong>异步消息场景</strong>（人可能不在），所以用"提前配置信任规则"。这不是优劣之分，是<strong>场景决定设计</strong>。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s3" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解权限模型的设计哲学差异</span></label>
+</section>
+
+<!-- ==================== S4: CONTEXT MANAGEMENT ==================== -->
+<section id="s4" class="section">
+  <div class="section-header">
+    <div class="section-num">04</div>
+    <div><div class="section-title">Context Management — 上下文管理策略</div>
+    <div class="section-subtitle">如何在有限 token 内保持 Agent 的长期记忆</div></div>
+  </div>
+
+  <div class="concept-card">
+    Claude Code 有 200K token 上下文窗口，但一次复杂重构可能产生数百万 token 的工具输出。上下文管理不是可选功能，而是<strong>生存必需品</strong>。
+  </div>
+
+  <div class="cmp-grid">
+    <div class="cmp-card cc">
+      <h4><span class="badge badge-cc">CC</span> 自动压缩 + Hook</h4>
+      <ul>
+        <li><strong>Auto-Compact</strong>：接近 token 上限时自动触发</li>
+        <li><strong>PreCompact Hook</strong>：压缩前通知用户脚本</li>
+        <li><strong>手动 /compact</strong>：用户随时触发</li>
+        <li><strong>历史保存</strong>：完整对话存入 JSONL 再压缩</li>
+        <li><strong>System Prompt 优化</strong>：deferred tools（按需加载工具定义）</li>
+      </ul>
+    </div>
+    <div class="cmp-card oc">
+      <h4><span class="badge badge-oc">OC</span> Summary 续接</h4>
+      <ul>
+        <li><strong>Summarize</strong>：独立 Provider 生成摘要</li>
+        <li><strong>SummaryMessageID</strong>：标记摘要位置</li>
+        <li><strong>截断加载</strong>：从摘要点截断历史消息</li>
+        <li><strong>Prompt Cache</strong>：Anthropic 的 cache 标记（最后 2 条消息）</li>
+        <li><strong>输出截断</strong>：工具结果 30KB 上限</li>
+      </ul>
+    </div>
+    <div class="cmp-card ow">
+      <h4><span class="badge badge-ow">OW</span> JSONL + Token 估算</h4>
+      <ul>
+        <li><strong>Transcript 管理</strong>：Pi 运行时的内部 session 管理</li>
+        <li><strong>Token 估算截断</strong>：工具输出按 token 估算裁剪</li>
+        <li><strong>Bootstrap 分离</strong>：AGENTS.md 等文件按需加载</li>
+        <li><strong>循环检测</strong>：重复工具调用自动终止</li>
+        <li><strong>Media TTL</strong>：媒体文件超时清理</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Claude Code 的 Deferred Tools 机制</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🎯</span> 按需加载工具定义——节省 System Prompt 空间</div>
+    <p>Claude Code 有 40+ 工具（内置 + MCP），如果全部塞进 system prompt 会浪费大量 token。解决方案：</p>
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">机制说明</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code><span style="color:#6A7088">// 1. 启动时只加载核心工具的完整 schema</span>
+完整加载: Read, Edit, Write, Bash, Glob, Grep, Agent
+
+<span style="color:#6A7088">// 2. 其他工具只在 &lt;available-deferred-tools&gt; 中列出名称</span>
+延迟加载: WebFetch, WebSearch, mcp__playwright__*, mcp__chrome__*, ...
+
+<span style="color:#6A7088">// 3. Agent 需要某工具时，调用 ToolSearch 获取完整 schema</span>
+ToolSearch({ query: "select:WebFetch,WebSearch" })
+→ 返回完整的 JSONSchema 定义
+→ 工具变为可调用状态</code></pre>
+    </div>
+    <p>这个机制让 Claude Code 在保持工具丰富性的同时，避免了 system prompt 膨胀。<strong>OpenCode 和 OpenClaw 都没有此机制</strong>。</p>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s4" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解上下文管理的不同策略和 Deferred Tools 机制</span></label>
+</section>
+
+<!-- ==================== S5: STREAMING ==================== -->
+<section id="s5" class="section">
+  <div class="section-header">
+    <div class="section-num">05</div>
+    <div><div class="section-title">Streaming & Events — 事件驱动架构</div>
+    <div class="section-subtitle">从 LLM API 到 UI 的数据流如何设计</div></div>
+  </div>
+
+  <div class="concept-card">
+    流式输出不只是"一个字一个字显示"。它涉及<strong>事件分类、多订阅者分发、UI 解耦、取消传播</strong>等一系列架构决策。三个产品的事件架构差异巨大。
+  </div>
+
+  <table>
+    <tr><th>维度</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td>传输协议</td><td>Anthropic SSE → 终端直出</td><td>Go Channel → PubSub → TUI</td><td>Pi 事件 → WebSocket → 多客户端</td></tr>
+    <tr><td>事件粒度</td><td>content_delta / tool_use / thinking</td><td>6 种 EventType（ThinkingDelta, ContentDelta, ToolUseStart/Stop, Error, Complete）</td><td>assistant / tool / lifecycle 三类</td></tr>
+    <tr><td>多订阅者</td><td>单终端</td><td>PubSub Broker（fan-out，非阻塞 select）</td><td>WebSocket 多客户端 + 消息渠道</td></tr>
+    <tr><td>背压处理</td><td>终端自然背压</td><td>Channel buffer=64，满则丢弃</td><td>Lane 并发限制 + queue 积压</td></tr>
+    <tr><td>取消机制</td><td>Ctrl+C → abort</td><td>context.Cancel() → 链式传播</td><td>runId 级中止 + session 级排空</td></tr>
+  </table>
+
+  <h3>OpenCode 的 PubSub 架构（源码级）</h3>
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)">
+      <span class="acc-arrow">▶</span> Go 泛型 PubSub Broker 实现细节
+    </div>
+    <div class="acc-body"><div class="acc-content">
+      <div class="code-wrap"><div class="code-header"><span class="code-lang">Go (internal/pubsub/)</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+      <pre><code><span style="color:#9E8CFC">type</span> Broker[T any] <span style="color:#9E8CFC">struct</span> {
+    subs map[<span style="color:#9E8CFC">chan</span> Event[T]]<span style="color:#9E8CFC">struct</span>{}
+    mu   sync.RWMutex
+}
+
+<span style="color:#6A7088">// Subscribe：创建 buffered channel，绑定到 context 生命周期</span>
+<span style="color:#9E8CFC">func</span> (b *Broker[T]) Subscribe(ctx context.Context) <span style="color:#9E8CFC">chan</span> Event[T] {
+    ch := make(<span style="color:#9E8CFC">chan</span> Event[T], 64)  <span style="color:#6A7088">// buffer=64 防抖</span>
+    b.subs[ch] = <span style="color:#9E8CFC">struct</span>{}{}
+    <span style="color:#9E8CFC">go</span> <span style="color:#9E8CFC">func</span>() {
+        &lt;-ctx.Done()       <span style="color:#6A7088">// context 取消时自动清理</span>
+        b.mu.Lock()
+        delete(b.subs, ch)
+        close(ch)
+        b.mu.Unlock()
+    }()
+    <span style="color:#9E8CFC">return</span> ch
+}
+
+<span style="color:#6A7088">// Publish：非阻塞 fan-out（满则丢弃）</span>
+<span style="color:#9E8CFC">func</span> (b *Broker[T]) Publish(typ EventType, payload T) {
+    b.mu.RLock()
+    snapshot := maps.Clone(b.subs)
+    b.mu.RUnlock()
+    <span style="color:#9E8CFC">for</span> ch := <span style="color:#9E8CFC">range</span> snapshot {
+        <span style="color:#9E8CFC">select</span> {
+        <span style="color:#9E8CFC">case</span> ch &lt;- Event[T]{typ, payload}:
+        <span style="color:#9E8CFC">default</span>:  <span style="color:#6A7088">// 满了就丢！不阻塞发布者</span>
+        }
+    }
+}</code></pre></div>
+      <p><strong>设计要点</strong>：非阻塞发布确保 Agent 循环不被慢消费者拖住；Context 自动清理防止泄漏；泛型让同一个 Broker 服务于 Agent/Session/Message/Permission 等所有事件类型。</p>
+    </div></div>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s5" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种事件驱动架构的设计差异</span></label>
+</section>
+
+<!-- ==================== S6: SUB-AGENT & TEAMS ==================== -->
+<section id="s6" class="section">
+  <div class="section-header">
+    <div class="section-num">06</div>
+    <div><div class="section-title">Sub-Agent & Teams — 多 Agent 协作</div>
+    <div class="section-subtitle">从独立子代理到自组织团队的演进</div></div>
+  </div>
+
+  <div class="concept-card">
+    多 Agent 协作是当前 AI Agent 领域最前沿的课题。Claude Code 已经实现了完整的 Agent Teams 系统，而 OpenCode 和 OpenClaw 各有各的方案。
+  </div>
+
+  <h3>Claude Code 的 Agent Teams（源码级）</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🟣</span> <span class="badge badge-cc">CC</span> 完整的团队协作系统</div>
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript (sdk-tools.d.ts 类型定义)</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code><span style="color:#6A7088">// Agent 工具 —— 生成子代理</span>
+type AgentInput = {
+  prompt: string                  <span style="color:#6A7088">// 任务描述</span>
+  description: string             <span style="color:#6A7088">// 3-5 词摘要</span>
+  subagent_type?: string          <span style="color:#6A7088">// 专业 Agent 类型</span>
+  model?: <span style="color:#D27E99">"sonnet"</span> | <span style="color:#D27E99">"opus"</span> | <span style="color:#D27E99">"haiku"</span>
+  mode?: <span style="color:#D27E99">"acceptEdits"</span> | <span style="color:#D27E99">"bypassPermissions"</span> | <span style="color:#D27E99">"plan"</span> | ...
+  isolation?: <span style="color:#D27E99">"worktree"</span>         <span style="color:#6A7088">// Git worktree 隔离</span>
+  run_in_background?: boolean     <span style="color:#6A7088">// 后台运行</span>
+  resume?: string                 <span style="color:#6A7088">// 恢复已有 Agent</span>
+  name?: string                   <span style="color:#6A7088">// 队友名称</span>
+  team_name?: string              <span style="color:#6A7088">// 团队上下文</span>
+}
+
+<span style="color:#6A7088">// Task 工具 —— 共享任务板</span>
+type TaskCreate = {
+  title: string
+  description: string
+  assignee?: string              <span style="color:#6A7088">// 分配给谁</span>
+  blockedBy?: string[]           <span style="color:#6A7088">// 依赖关系</span>
+}
+
+<span style="color:#6A7088">// SendMessage —— Agent 间通信</span>
+type SendMessage = {
+  recipient: string              <span style="color:#6A7088">// 队友名称</span>
+  message: string
+}</code></pre></div>
+    <p><strong>Claude Code Agent Teams 的关键特性</strong>：</p>
+    <ul>
+      <li><strong>角色专业化</strong> — 每个 Agent 有 <code>.claude/agents/</code> 定义的系统提示和专长</li>
+      <li><strong>Worktree 隔离</strong> — 每个 Agent 可以在独立的 git worktree 中工作，文件系统级隔离</li>
+      <li><strong>共享任务板</strong> — <code>~/.claude/tasks/{team-name}/</code> 下的 JSON 文件</li>
+      <li><strong>异步通信</strong> — <code>SendMessage</code> 工具支持点对点和广播</li>
+      <li><strong>可恢复</strong> — <code>resume</code> 参数让子 Agent 可以从上次中断处继续</li>
+    </ul>
+  </div>
+
+  <h3>三产品对比</h3>
+  <table>
+    <tr><th>能力</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td>子代理</td><td>Agent 工具递归创建</td><td>无（单 Agent）</td><td>ACP spawn 子进程</td></tr>
+    <tr><td>后台执行</td><td><code>run_in_background</code></td><td>无</td><td>Lane 系统 (subagent lane)</td></tr>
+    <tr><td>文件隔离</td><td>Git worktree</td><td>无</td><td>Sandbox 目录</td></tr>
+    <tr><td>任务协调</td><td>共享 Task 板 + 依赖图</td><td>无</td><td>Session spawn + yield</td></tr>
+    <tr><td>Agent 通信</td><td>SendMessage (DM + 广播)</td><td>无</td><td>Session 间消息路由</td></tr>
+    <tr><td>角色定义</td><td>.claude/agents/ Markdown</td><td>无</td><td>AGENTS.md + SOUL.md</td></tr>
+    <tr><td>可恢复</td><td>resume: agentId</td><td>无</td><td>JSONL 续接</td></tr>
+  </table>
+
+  <div class="tip-box">
+    Claude Code 在多 Agent 协作方面领先最多。OpenCode 目前完全没有子代理支持（已归档，转向 Crush 项目）。OpenClaw 有子进程 Agent，但缺少 Claude Code 那样结构化的任务板和通信协议。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s6" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种多 Agent 协作方案的差异</span></label>
+</section>
+
+<!-- ==================== S7: SESSION & MEMORY ==================== -->
+<section id="s7" class="section">
+  <div class="section-header">
+    <div class="section-num">07</div>
+    <div><div class="section-title">Session & Memory — 持久化策略</div>
+    <div class="section-subtitle">短期会话 vs 长期记忆的存储架构</div></div>
+  </div>
+
+  <table>
+    <tr><th>维度</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td>会话存储</td><td>JSONL (<code>~/.claude/history.jsonl</code>)</td><td>SQLite (sqlc 类型安全)</td><td>JSONL per-session + sessions.json 索引</td></tr>
+    <tr><td>长期记忆</td><td>文件式 Memory 系统 (<code>~/.claude/projects/*/memory/</code>)</td><td>无</td><td>Bootstrap 文件 (AGENTS.md, USER.md)</td></tr>
+    <tr><td>记忆类型</td><td>user / feedback / project / reference 四种</td><td>—</td><td>SOUL.md / IDENTITY.md / USER.md</td></tr>
+    <tr><td>记忆索引</td><td>MEMORY.md 索引文件</td><td>—</td><td>无（全量加载）</td></tr>
+    <tr><td>配置层次</td><td>global → project → local (三级合并)</td><td>Viper JSON/YAML/env</td><td>YAML + env override + hot-reload</td></tr>
+    <tr><td>项目指令</td><td>CLAUDE.md (自动加载)</td><td>无专用文件</td><td>AGENTS.md (Hook 可修改)</td></tr>
+    <tr><td>成本追踪</td><td>token 消耗 + 滚动窗口配额</td><td>per-session token/cost 统计</td><td>inputTokens + outputTokens + estimatedCostUsd</td></tr>
+  </table>
+
+  <h3>Claude Code 的 Memory 系统详解</h3>
+  <div class="card">
+    <div class="card-title"><span class="icon">🧠</span> 文件驱动的跨会话记忆</div>
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">目录结构</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+    <pre><code>~/.claude/projects/{project-hash}/memory/
+├── MEMORY.md            <span style="color:#6A7088"># 索引文件（始终加载到上下文）</span>
+├── user_role.md         <span style="color:#6A7088"># 用户画像："资深后端，新手 React"</span>
+├── feedback_testing.md  <span style="color:#6A7088"># 反馈记忆："不要 mock 数据库"</span>
+├── project_freeze.md    <span style="color:#6A7088"># 项目动态："3/5 起合并冻结"</span>
+└── reference_linear.md  <span style="color:#6A7088"># 外部资源："bug 在 Linear INGEST 项目"</span></code></pre>
+    </div>
+    <p><strong>每个记忆文件的格式</strong>：</p>
+    <div class="code-wrap"><div class="code-header"><span class="code-lang">Markdown</span></div>
+    <pre><code>---
+name: 测试规范
+description: 团队的测试偏好和要求
+type: feedback
+---
+集成测试必须连接真实数据库，不用 mock。
+
+**Why:** 上季度 mock 测试通过但生产迁移失败。
+**How to apply:** 写测试时默认用真实 DB 连接。</code></pre>
+    </div>
+    <p><strong>OpenCode 和 OpenClaw 都没有等价的跨会话记忆系统</strong>。OpenCode 只有 session 级别的消息持久化；OpenClaw 通过 Bootstrap 文件（AGENTS.md 等）实现类似效果，但缺乏结构化的记忆分类和自动索引。</p>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s7" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种持久化策略的设计差异</span></label>
+</section>
+
+<!-- ==================== S8: EXTENSIBILITY ==================== -->
+<section id="s8" class="section">
+  <div class="section-header">
+    <div class="section-num">08</div>
+    <div><div class="section-title">Extensibility — 扩展性架构</div>
+    <div class="section-subtitle">Hooks、MCP、Plugins — 三种开放策略</div></div>
+  </div>
+
+  <div class="concept-card">
+    一个好的 Agent 框架不应该试图做所有事，而是提供<strong>精心设计的扩展点</strong>，让生态来补充能力。三个产品的扩展哲学完全不同。
+  </div>
+
+  <h3>Claude Code 的 Hook 生命周期</h3>
+  <div class="flow">
+    <div class="flow-step" style="border-color:var(--cc)"><div class="step-title">SessionStart</div><div class="step-desc">会话初始化</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">UserPrompt</div><div class="step-desc">用户输入前</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color:var(--cc)"><div class="step-title">PreToolUse</div><div class="step-desc">工具执行前</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">PostToolUse</div><div class="step-desc">工具执行后</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-title">PreCompact</div><div class="step-desc">压缩前</div></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color:var(--cc)"><div class="step-title">Stop</div><div class="step-desc">Agent 结束</div></div>
+  </div>
+
+  <h3>扩展机制对比</h3>
+  <table>
+    <tr><th>扩展方式</th><th><span class="badge badge-cc">Claude Code</span></th><th><span class="badge badge-oc">OpenCode</span></th><th><span class="badge badge-ow">OpenClaw</span></th></tr>
+    <tr><td><strong>工具扩展</strong></td><td>MCP 协议 (Stdio/SSE)</td><td>MCP + Go interface</td><td>Plugin agentTools</td></tr>
+    <tr><td><strong>行为拦截</strong></td><td>Hook 脚本 (Python/Shell/JS)</td><td>无</td><td>Internal Hook 事件</td></tr>
+    <tr><td><strong>知识注入</strong></td><td>Skill (.claude/commands/)</td><td>无</td><td>Bootstrap 文件</td></tr>
+    <tr><td><strong>Agent 角色</strong></td><td>.claude/agents/ 定义</td><td>单一 Agent</td><td>AGENTS.md + SOUL.md</td></tr>
+    <tr><td><strong>渠道扩展</strong></td><td>无</td><td>无</td><td>ChannelPlugin 接口</td></tr>
+    <tr><td><strong>UI 扩展</strong></td><td>IDE 插件 (VS Code/JetBrains)</td><td>无（固定 TUI）</td><td>WebSocket API 任意客户端</td></tr>
+    <tr><td><strong>配置热更新</strong></td><td>需重启</td><td>需重启</td><td>config.patch (热更新)</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>扩展策略对比</strong>：Claude Code 选择 "MCP 协议 + Hook 脚本" 的双轨策略 —— MCP 解决工具扩展，Hook 解决行为定制。OpenCode 基本无扩展性（只能 fork 源码）。OpenClaw 的插件系统最灵活但也最复杂，适合需要深度定制的场景。
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s8" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三种扩展架构的设计权衡</span></label>
+</section>
+
+<!-- ==================== S9: PROS & CONS ==================== -->
+<section id="s9" class="section">
+  <div class="section-header">
+    <div class="section-num">09</div>
+    <div><div class="section-title">产品优劣势深度分析</div>
+    <div class="section-subtitle">每个产品解决了什么问题？留下了什么问题？</div></div>
+  </div>
+
+  <h3>能力雷达对比</h3>
+  <div class="card" style="padding:24px">
+    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:.8rem"><span style="display:inline-block;width:10px;height:10px;background:var(--cc);border-radius:2px;margin-right:4px"></span>Claude Code</span>
+      <span style="font-size:.8rem"><span style="display:inline-block;width:10px;height:10px;background:var(--oc);border-radius:2px;margin-right:4px"></span>OpenCode</span>
+      <span style="font-size:.8rem"><span style="display:inline-block;width:10px;height:10px;background:var(--ow);border-radius:2px;margin-right:4px"></span>OpenClaw</span>
+    </div>
+    <div class="score-row"><span class="score-label">Agent 循环</span><div class="score-bars"><div class="score-bar cc" style="width:95%"></div><div class="score-val">9.5</div><div class="score-bar oc" style="width:80%"></div><div class="score-val">8</div><div class="score-bar ow" style="width:90%"></div><div class="score-val">9</div></div></div>
+    <div class="score-row"><span class="score-label">工具系统</span><div class="score-bars"><div class="score-bar cc" style="width:95%"></div><div class="score-val">9.5</div><div class="score-bar oc" style="width:75%"></div><div class="score-val">7.5</div><div class="score-bar ow" style="width:85%"></div><div class="score-val">8.5</div></div></div>
+    <div class="score-row"><span class="score-label">多模型</span><div class="score-bars"><div class="score-bar cc" style="width:30%"></div><div class="score-val">3</div><div class="score-bar oc" style="width:95%"></div><div class="score-val">9.5</div><div class="score-bar ow" style="width:70%"></div><div class="score-val">7</div></div></div>
+    <div class="score-row"><span class="score-label">权限安全</span><div class="score-bars"><div class="score-bar cc" style="width:95%"></div><div class="score-val">9.5</div><div class="score-bar oc" style="width:80%"></div><div class="score-val">8</div><div class="score-bar ow" style="width:70%"></div><div class="score-val">7</div></div></div>
+    <div class="score-row"><span class="score-label">多 Agent</span><div class="score-bars"><div class="score-bar cc" style="width:90%"></div><div class="score-val">9</div><div class="score-bar oc" style="width:10%"></div><div class="score-val">1</div><div class="score-bar ow" style="width:60%"></div><div class="score-val">6</div></div></div>
+    <div class="score-row"><span class="score-label">扩展性</span><div class="score-bars"><div class="score-bar cc" style="width:85%"></div><div class="score-val">8.5</div><div class="score-bar oc" style="width:60%"></div><div class="score-val">6</div><div class="score-bar ow" style="width:90%"></div><div class="score-val">9</div></div></div>
+    <div class="score-row"><span class="score-label">多渠道</span><div class="score-bars"><div class="score-bar cc" style="width:20%"></div><div class="score-val">2</div><div class="score-bar oc" style="width:10%"></div><div class="score-val">1</div><div class="score-bar ow" style="width:95%"></div><div class="score-val">9.5</div></div></div>
+    <div class="score-row"><span class="score-label">记忆系统</span><div class="score-bars"><div class="score-bar cc" style="width:90%"></div><div class="score-val">9</div><div class="score-bar oc" style="width:40%"></div><div class="score-val">4</div><div class="score-bar ow" style="width:60%"></div><div class="score-val">6</div></div></div>
+    <div class="score-row"><span class="score-label">开源透明</span><div class="score-bars"><div class="score-bar cc" style="width:30%"></div><div class="score-val">3</div><div class="score-bar oc" style="width:100%"></div><div class="score-val">10</div><div class="score-bar ow" style="width:100%"></div><div class="score-val">10</div></div></div>
+  </div>
+
+  <h3>各产品优劣势详解</h3>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🟣</span> <span class="badge badge-cc">Claude Code</span> 优劣势</div>
+    <h4>优势 — 解决了什么问题</h4>
+    <ul>
+      <li><strong>最完整的 Agent 体验</strong> — 从单 Agent 到多 Agent Teams，从 Plan Mode 到 Worktree 隔离，生态最成熟</li>
+      <li><strong>Hook + MCP 双轨扩展</strong> — 行为拦截和工具扩展分离，各自清晰</li>
+      <li><strong>Memory 系统</strong> — 唯一实现了结构化跨会话记忆的产品（user/feedback/project/reference 四种类型）</li>
+      <li><strong>Deferred Tools</strong> — 按需加载工具定义，节省 system prompt 空间，独家机制</li>
+      <li><strong>Plan Mode</strong> — "先说再做"的安全模式，让用户在执行前审查计划</li>
+      <li><strong>Skill 系统</strong> — Markdown 定义可复用知识模块，支持项目级/全局级/内置三层</li>
+    </ul>
+    <h4>劣势 — 留下了什么问题</h4>
+    <ul>
+      <li><strong>模型锁定</strong> — 只能用 Claude，无法切换到 GPT-4/Gemini（最大限制）</li>
+      <li><strong>闭源</strong> — 12.1MB 编译后 cli.js，无法审计安全性或自定义核心逻辑</li>
+      <li><strong>成本</strong> — Opus 模型费用高昂，快速模式 6x 定价</li>
+      <li><strong>单终端</strong> — 只有 CLI + IDE 插件，不支持 Web/Mobile/消息平台</li>
+      <li><strong>无离线模式</strong> — 完全依赖 Anthropic API</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🔵</span> <span class="badge badge-oc">OpenCode</span> 优劣势</div>
+    <h4>优势</h4>
+    <ul>
+      <li><strong>完全开源</strong> — Go 源码可审计、可 fork、可定制</li>
+      <li><strong>多 Provider 支持</strong> — 12+ Provider（Anthropic/OpenAI/Gemini/Bedrock/Copilot/Azure/...），模型自由切换</li>
+      <li><strong>LSP 集成</strong> — 唯一集成语言服务器的产品，编辑后自动获取诊断</li>
+      <li><strong>Bubble Tea TUI</strong> — 精美的终端 UI，接近 IDE 体验</li>
+      <li><strong>SQLite 持久化</strong> — 结构化数据库存储（比 JSONL 更可靠、可查询）</li>
+      <li><strong>Prompt Cache</strong> — 对 Anthropic API 自动应用缓存标记，降低成本</li>
+    </ul>
+    <h4>劣势</h4>
+    <ul>
+      <li><strong>无子代理 / 多 Agent</strong> — 单 Agent 架构，无法并行处理复杂任务</li>
+      <li><strong>MCP 无刷新</strong> — 启动时加载一次，运行中新增的 MCP 工具无法发现</li>
+      <li><strong>工具分发 O(N)</strong> — 线性搜索而非哈希查找（工具多时性能下降）</li>
+      <li><strong>无记忆系统</strong> — 没有跨会话记忆，每次重启从零开始</li>
+      <li><strong>已归档</strong> — 项目已停止维护，团队转向 Crush</li>
+      <li><strong>无扩展性</strong> — 除 MCP 外没有 Hook/Plugin 机制</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🟠</span> <span class="badge badge-ow">OpenClaw</span> 优劣势</div>
+    <h4>优势</h4>
+    <ul>
+      <li><strong>多渠道霸主</strong> — 20+ 消息平台（WhatsApp/Telegram/Slack/Discord/Signal/iMessage/...）</li>
+      <li><strong>Gateway 架构</strong> — WebSocket RPC 控制面，支持任意客户端接入（CLI/Web/Mobile）</li>
+      <li><strong>插件系统最灵活</strong> — ChannelPlugin + AgentTool + Hook 三层扩展</li>
+      <li><strong>Lane 并发模型</strong> — Main/Cron/Subagent 独立并发池，精细资源控制</li>
+      <li><strong>Bootstrap Hook</strong> — 插件在 Agent 看到配置文件前就能修改内容，最强的注入控制</li>
+      <li><strong>语音 + Canvas</strong> — 超越文本的交互形态</li>
+    </ul>
+    <h4>劣势</h4>
+    <ul>
+      <li><strong>开发复杂度极高</strong> — agent-command.ts 1333 行、server.impl.ts 56KB，入门门槛高</li>
+      <li><strong>单用户模型</strong> — 信任模型简单，不适合多租户场景</li>
+      <li><strong>无结构化记忆</strong> — 依赖 Bootstrap 文件而非分类记忆系统</li>
+      <li><strong>Code 场景弱</strong> — 不专注编程，缺少 LSP/编辑器集成</li>
+      <li><strong>部署门槛高</strong> — 需要 Node.js 22+、Gateway 守护进程、各渠道 API 配置</li>
+    </ul>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s9" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解三个产品的优劣势和适用场景</span></label>
+</section>
+
+<!-- ==================== S10: WHAT THEY SOLVE ==================== -->
+<section id="s10" class="section">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div><div class="section-title">各自解决了什么核心问题？</div>
+    <div class="section-subtitle">不同的产品定位带来不同的架构选择</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🟣</span> Claude Code 解决的问题</div>
+    <table>
+      <tr><th>问题</th><th>解决方案</th><th>架构支撑</th></tr>
+      <tr><td>开发者需要 AI 自主完成复杂编程任务</td><td>完整的 Agent Loop + 丰富内置工具</td><td>30+ 工具，覆盖读/写/搜/执行/浏览</td></tr>
+      <tr><td>Agent 执行危险操作怎么办？</td><td>多模式权限 + Hook 拦截</td><td>Plan/Accept/Bypass 三种模式 + PreToolUse</td></tr>
+      <tr><td>单 Agent 能力不够怎么办？</td><td>Agent Teams + 任务板</td><td>子代理 + 共享任务 + SendMessage</td></tr>
+      <tr><td>上下文窗口不够长怎么办？</td><td>Auto-Compact + Deferred Tools</td><td>自动压缩 + 按需加载工具定义</td></tr>
+      <tr><td>每次重启都要重新教 AI 怎么办？</td><td>Memory 系统 + CLAUDE.md</td><td>4 种记忆类型 + 项目级指令文件</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🔵</span> OpenCode 解决的问题</div>
+    <table>
+      <tr><th>问题</th><th>解决方案</th><th>架构支撑</th></tr>
+      <tr><td>Claude Code 只支持 Claude 模型</td><td>12+ Provider 抽象</td><td>Go interface + Factory Pattern</td></tr>
+      <tr><td>闭源无法审计和定制</td><td>完全开源 Go 代码</td><td>MIT License + 清晰模块划分</td></tr>
+      <tr><td>编辑后不知道代码是否正确</td><td>LSP 诊断集成</td><td>编辑工具等待 LSP 诊断后返回结果</td></tr>
+      <tr><td>API 调用费用高</td><td>Prompt Cache + 多 Provider 选择</td><td>Anthropic CacheControl 标记 + 廉价模型切换</td></tr>
+      <tr><td>需要精美的终端体验</td><td>Bubble Tea TUI</td><td>组件化 UI + 快捷键 + 主题切换</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">🟠</span> OpenClaw 解决的问题</div>
+    <table>
+      <tr><th>问题</th><th>解决方案</th><th>架构支撑</th></tr>
+      <tr><td>AI 助手只能在终端用</td><td>20+ 消息渠道接入</td><td>ChannelPlugin 架构 + Gateway 路由</td></tr>
+      <tr><td>不同渠道需要不同集成</td><td>统一 Plugin 接口</td><td>inbound/actions/agentTools 三层抽象</td></tr>
+      <tr><td>多个请求同时到达怎么办？</td><td>Lane 并发控制</td><td>Main/Cron/Subagent 三 lane + per-session 串行</td></tr>
+      <tr><td>Agent 人设需要可定制</td><td>Bootstrap 文件 + Hook</td><td>SOUL.md + IDENTITY.md + Hook 拦截</td></tr>
+      <tr><td>需要语音和可视化交互</td><td>Voice + Canvas</td><td>macOS/iOS/Android 客户端 + Canvas 工具</td></tr>
+    </table>
+  </div>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s10" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解每个产品的核心问题域和解决方案</span></label>
+</section>
+
+<!-- ==================== S11: DESIGN GUIDE ==================== -->
+<section id="s11" class="section">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <div><div class="section-title">Agent 设计指南 — 如果你要设计自己的 Agent</div>
+    <div class="section-subtitle">从三个产品的经验中提炼的设计决策框架</div></div>
+  </div>
+
+  <div class="concept-card">
+    设计 Agent 不是选择"最好的架构"，而是在<strong>具体约束下做出正确的权衡</strong>。以下决策框架帮你在每个关键节点做出选择。
+  </div>
+
+  <h3>决策 1：Agent Loop 的复杂度</h3>
+  <div class="decision-card">
+    <h4>你需要多复杂的循环？</h4>
+    <table>
+      <tr><th>场景</th><th>推荐方案</th><th>参考实现</th></tr>
+      <tr><td>快速原型 / 学习</td><td>30 行 while 循环</td><td>learn-claude-code s01</td></tr>
+      <tr><td>单用户 CLI 产品</td><td>+ 流式 + 取消 + 权限阻塞</td><td>OpenCode agent.go</td></tr>
+      <tr><td>多用户 / 多渠道服务</td><td>+ 并发控制 + Lane + Actor Queue</td><td>OpenClaw agent-command.ts</td></tr>
+      <tr><td>企业级 + 多 Agent</td><td>+ 子代理 + 任务板 + 通信协议</td><td>Claude Code Agent Teams</td></tr>
+    </table>
+    <p><strong>原则</strong>：从最简单的循环开始，只在真正遇到问题时才加复杂度。learn-claude-code 的 12 节课完美展示了这个递进过程。</p>
+  </div>
+
+  <h3>决策 2：工具系统设计</h3>
+  <div class="decision-card">
+    <h4>你的工具需要多大的扩展性？</h4>
+    <table>
+      <tr><th>选择</th><th>适用场景</th><th>权衡</th></tr>
+      <tr><td>硬编码工具集</td><td>工具固定、场景单一</td><td>最简单，但无法运行时扩展</td></tr>
+      <tr><td>Interface + 注册</td><td>开发者需要自定义工具</td><td>需要编译部署（OpenCode）</td></tr>
+      <tr><td>MCP 协议</td><td>需要生态和第三方工具</td><td>标准化但增加网络开销</td></tr>
+      <tr><td>Plugin 热加载</td><td>需要运行时动态扩展</td><td>最灵活但复杂度最高（OpenClaw）</td></tr>
+    </table>
+    <p><strong>原则</strong>：先硬编码核心工具（bash/read/write/edit/search），再用 MCP 开放扩展。这是 Claude Code 验证过的路径。</p>
+  </div>
+
+  <h3>决策 3：权限模型</h3>
+  <div class="decision-card">
+    <h4>你的用户愿意被打断多少次？</h4>
+    <table>
+      <tr><th>模型</th><th>适用场景</th><th>信任度</th></tr>
+      <tr><td>全部自动批准</td><td>受信环境、CI/CD</td><td>高信任</td></tr>
+      <tr><td>黑名单 + 白名单</td><td>快速原型</td><td>中等信任</td></tr>
+      <tr><td>交互式确认</td><td>CLI / IDE 场景</td><td>低信任、高安全</td></tr>
+      <tr><td>Plan → Approve → Execute</td><td>高风险操作</td><td>最低信任、最高安全</td></tr>
+    </table>
+    <p><strong>原则</strong>：<strong>读操作宽松，写操作严格，不可逆操作必须确认</strong>。Claude Code 的三级分类（allow/ask/deny）是最佳实践。</p>
+  </div>
+
+  <h3>决策 4：上下文管理</h3>
+  <div class="decision-card">
+    <h4>你预期的对话有多长？</h4>
+    <table>
+      <tr><th>对话长度</th><th>推荐策略</th></tr>
+      <tr><td>&lt; 50 轮</td><td>不需要压缩，直接使用</td></tr>
+      <tr><td>50-200 轮</td><td>旧工具结果替换为占位符（Micro Compact）</td></tr>
+      <tr><td>200+ 轮</td><td>自动摘要 + 截断重置（Auto Compact）</td></tr>
+      <tr><td>跨会话</td><td>Memory 系统 + Bootstrap 文件</td></tr>
+    </table>
+    <p><strong>原则</strong>：层层递进，按需触发。Deferred Tools 机制（按需加载工具定义）是一个经常被忽视但非常有效的优化。</p>
+  </div>
+
+  <h3>决策 5：持久化选择</h3>
+  <div class="decision-card">
+    <h4>你需要什么级别的持久化？</h4>
+    <table>
+      <tr><th>需求</th><th>推荐方案</th><th>参考</th></tr>
+      <tr><td>对话历史</td><td>JSONL（简单追加）或 SQLite（可查询）</td><td>OpenClaw / OpenCode</td></tr>
+      <tr><td>跨会话记忆</td><td>Markdown 文件 + 索引文件</td><td>Claude Code Memory</td></tr>
+      <tr><td>团队协作状态</td><td>JSON 文件 + 依赖图</td><td>Claude Code Tasks</td></tr>
+      <tr><td>配置管理</td><td>分层合并（global → project → local）</td><td>三个产品都采用</td></tr>
+    </table>
+  </div>
+
+  <h3>决策 6：多 Agent 架构</h3>
+  <div class="decision-card">
+    <h4>你需要多少个 Agent 协作？</h4>
+    <table>
+      <tr><th>规模</th><th>推荐架构</th><th>关键组件</th></tr>
+      <tr><td>单 Agent</td><td>简单循环即可</td><td>Agent Loop</td></tr>
+      <tr><td>主 + 子</td><td>独立 messages[] 的子代理</td><td>+ Sub-Agent 工具</td></tr>
+      <tr><td>小团队 (2-5)</td><td>共享任务板 + 点对点消息</td><td>+ Task Board + SendMessage</td></tr>
+      <tr><td>大团队 (5+)</td><td>Lane 并发 + Worktree 隔离</td><td>+ SessionActorQueue + Git Worktree</td></tr>
+    </table>
+    <p><strong>原则</strong>：<strong>不要过早引入多 Agent</strong>。大多数任务单 Agent + 好的工具集就够了。只在任务确实可并行、且需要角色专业化时才升级。</p>
+  </div>
+
+  <h3>推荐技术栈选择</h3>
+  <table>
+    <tr><th>你的目标</th><th>推荐学习路径</th></tr>
+    <tr><td>理解 Agent 原理</td><td>learn-claude-code (Python, 12 节课从 0 到 1)</td></tr>
+    <tr><td>构建开发者 CLI 工具</td><td>参考 OpenCode (Go) 或 Claude Code 的架构模式</td></tr>
+    <tr><td>构建多渠道 AI 助手</td><td>参考 OpenClaw (TypeScript) 的 Gateway + Plugin 架构</td></tr>
+    <tr><td>使用现成工具</td><td>直接用 Claude Code + MCP 生态</td></tr>
+    <tr><td>构建可定制的企业 Agent</td><td>Claude Agent SDK (Python) + MCP 协议</td></tr>
+  </table>
+
+  <label class="learn-check"><input type="checkbox" data-topic="s11" onchange="saveProgress(this)">
+    <span class="check-box"></span><span class="check-label">我已理解 Agent 设计的关键决策框架</span></label>
+</section>
+
+<!-- ==================== QUICK REF ==================== -->
+<div id="quickref">
+  <h2>终极速查：三产品一页对比</h2>
+  <div class="qr-grid">
+    <div class="qr-card">
+      <div class="qr-title">Agent Loop</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> Hook 包裹 + Plan Mode<br><span class="badge badge-oc">OC</span> context.Cancel + Summary 续接<br><span class="badge badge-ow">OW</span> Lane 并发 + Actor Queue</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Tool System</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> 联合类型 + MCP + Deferred<br><span class="badge badge-oc">OC</span> Go interface + MCP (静态)<br><span class="badge badge-ow">OW</span> Plugin agentTools (动态)</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Permission</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> allow/ask/deny 配置 + Hook<br><span class="badge badge-oc">OC</span> channel 阻塞 + session 缓存<br><span class="badge badge-ow">OW</span> 单用户信任 + ownerOnly</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Context</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> Auto-Compact + Deferred Tools<br><span class="badge badge-oc">OC</span> SummaryMessageID 截断<br><span class="badge badge-ow">OW</span> Token 估算 + 循环检测</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Multi-Agent</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> Teams + Task Board + Worktree<br><span class="badge badge-oc">OC</span> 无<br><span class="badge badge-ow">OW</span> ACP spawn + session 路由</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Memory</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> 4 类记忆 + MEMORY.md 索引<br><span class="badge badge-oc">OC</span> SQLite session 持久化<br><span class="badge badge-ow">OW</span> JSONL + Bootstrap 文件</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Extensibility</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> Hook + MCP + Skill<br><span class="badge badge-oc">OC</span> MCP only<br><span class="badge badge-ow">OW</span> ChannelPlugin + Hook + 热更新</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">Best For</div>
+      <div class="qr-body"><span class="badge badge-cc">CC</span> 专业编程 + 企业开发<br><span class="badge badge-oc">OC</span> 学习源码 + 多模型自由<br><span class="badge badge-ow">OW</span> 个人全能助手 + 多平台</div>
+    </div>
+    <div class="qr-card">
+      <div class="qr-title">设计 Agent 的黄金法则</div>
+      <div class="qr-body">1. 从 30 行循环开始<br>2. 核心工具先硬编码<br>3. 读宽松，写严格<br>4. 分层压缩上下文<br>5. 不要过早多 Agent</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+const STORAGE_KEY='cc-anatomy-v2-progress';
+const sections=[
+  {id:'s0',label:'三大产品全景',phase:'overview'},
+  {id:'s1',label:'Agent Loop',phase:'core'},
+  {id:'s2',label:'Tool System',phase:'core'},
+  {id:'s3',label:'Permission',phase:'core'},
+  {id:'s4',label:'Context Mgmt',phase:'core'},
+  {id:'s5',label:'Streaming',phase:'core'},
+  {id:'s6',label:'Multi-Agent',phase:'advanced'},
+  {id:'s7',label:'Session & Memory',phase:'advanced'},
+  {id:'s8',label:'Extensibility',phase:'advanced'},
+  {id:'s9',label:'优劣势分析',phase:'compare'},
+  {id:'s10',label:'问题域对比',phase:'compare'},
+  {id:'s11',label:'设计指南',phase:'guide'},
+];
+const phaseLabels={overview:'总览',core:'核心架构',advanced:'高级机制',compare:'产品对比',guide:'设计指南'};
+
+// Build sidebar
+const sidebar=document.getElementById('sidebar');
+let lastPhase='';
+sections.forEach((s,i)=>{
+  if(s.phase!==lastPhase){lastPhase=s.phase;const sec=document.createElement('div');sec.className='nav-section';sec.textContent=phaseLabels[s.phase];sidebar.appendChild(sec)}
+  const item=document.createElement('div');item.className='nav-item';item.dataset.target=s.id;
+  item.innerHTML=`<span class="nav-num">${String(i).padStart(2,'0')}</span><span class="nav-label">${s.label}</span><span class="nav-check">✓</span>`;
+  item.onclick=()=>{document.getElementById(s.id)?.scrollIntoView({behavior:'smooth'});if(window.innerWidth<=900)toggleSidebar()};
+  sidebar.appendChild(item);
+});
+
+// Build progress bar
+const pw=document.getElementById('progress-wrap');let lp='';
+sections.forEach((s,i)=>{
+  if(s.phase!==lp&&lp!==''){const d=document.createElement('div');d.className='seg-divider';pw.appendChild(d)}lp=s.phase;
+  const seg=document.createElement('div');seg.className='seg';seg.title=s.label;seg.onclick=()=>document.getElementById(s.id)?.scrollIntoView({behavior:'smooth'});pw.appendChild(seg);
+});
+
+function getProgress(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return{}}}
+function saveProgress(cb){const p=getProgress();p[cb.dataset.topic]=cb.checked;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));syncUI()}
+function syncUI(){
+  const p=getProgress();let done=0;const segs=pw.querySelectorAll('.seg');const navs=sidebar.querySelectorAll('.nav-item');let si=0;
+  sections.forEach((s,i)=>{
+    const d=!!p[s.id];if(d)done++;
+    const cb=document.querySelector(`input[data-topic="${s.id}"]`);if(cb)cb.checked=d;
+    if(navs[i])navs[i].classList.toggle('done',d);
+    while(si<segs.length&&!segs[si]?.classList.contains('seg'))si++;
+    if(segs[si])segs[si].classList.toggle('done',d);si++;
+  });
+  document.getElementById('progress-text').textContent=`${done}/${sections.length}`;
+}
+syncUI();
+
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      const navs=sidebar.querySelectorAll('.nav-item');
+      navs.forEach(n=>n.classList.remove('active'));
+      const idx=sections.findIndex(s=>s.id===e.target.id);
+      if(idx>=0&&navs[idx])navs[idx].classList.add('active');
+    }
+  });
+},{threshold:0.1});
+document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+
+function toggleSidebar(){sidebar.classList.toggle('open');document.getElementById('overlay').classList.toggle('show')}
+function toggleAcc(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open')}
+function copyCode(btn){
+  const code=btn.closest('.code-wrap').querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(()=>{btn.textContent='已复制!';setTimeout(()=>btn.textContent='复制',2000)});
+}
+</script>
+</body>
+</html>
