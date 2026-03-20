@@ -7,12 +7,12 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--bg4:#21283b;
-  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
-  --accent:#58a6ff;--accent2:#3fb950;--accent3:#f0883e;--accent4:#f778ba;
-  --red:#f85149;--green:#3fb950;--yellow:#d29922;--purple:#bc8cff;
-  --border:#30363d;--border2:#21262d;
-  --code-bg:#0d1117;--card:#161b22;
+  --bg:#F8F8FC;--bg2:#EEEDF5;--bg3:#E4E2F0;--bg4:#DBD8EC;
+  --text:#2E2B3D;--text2:#7E7A92;--text3:#9E9AB0;
+  --accent:#7C3AED;--accent2:#6D28D9;--accent3:#7C3AED;--accent4:#6D28D9;
+  --red:#7C3AED;--green:#7C3AED;--yellow:#7C3AED;--purple:#6D28D9;
+  --border:#CCC8E0;--border2:#DBD8EC;
+  --code-bg:#1E1B2E;--card:#EEEDF5;
   --sidebar-w:280px;--topbar-h:52px;
 }
 html{scroll-behavior:smooth;font-size:15px}
@@ -23,8 +23,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 #topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--bg2);border-bottom:1px solid var(--border);z-index:1000;display:flex;align-items:center;padding:0 24px}
 #topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent);white-space:nowrap}
 #topbar .logo span{color:var(--text)}
-#progress-wrap{flex:1;margin:0 24px;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden}
-#progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px;transition:width .4s ease}
+#progress-wrap{flex:1;margin:0 24px;height:8px;display:flex;gap:3px;align-items:stretch}
+.seg{flex:1;border-radius:2px;background:var(--bg4);transition:background .3s;cursor:pointer}
+.seg.done{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.seg:hover{opacity:.8}
+.seg-divider{width:6px;flex-shrink:0}
 #progress-text{font-size:.85rem;color:var(--text2);white-space:nowrap;min-width:60px;text-align:right}
 #menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;margin-right:12px}
 
@@ -34,12 +37,12 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .nav-section{padding:8px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:12px}
 .nav-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:all .2s;font-size:.9rem;color:var(--text2);gap:10px}
 .nav-item:hover{background:var(--bg3);color:var(--text)}
-.nav-item.active{border-left-color:var(--accent);color:var(--accent);background:rgba(88,166,255,.08)}
+.nav-item.active{border-left-color:var(--accent);color:var(--accent);background:rgba(124,58,237,.08)}
 .nav-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.7rem;font-weight:700;background:var(--bg4);color:var(--text3);flex-shrink:0}
 .nav-item.active .nav-num{background:var(--accent);color:var(--bg)}
-.nav-item.done .nav-num{background:var(--green);color:var(--bg)}
+.nav-item.done .nav-num{background:var(--accent2);color:var(--bg)}
 .nav-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nav-check{font-size:.9rem;color:var(--green);opacity:0;transition:opacity .2s}.nav-item.done .nav-check{opacity:1}
+.nav-check{font-size:.9rem;color:var(--accent2);opacity:0;transition:opacity .2s}.nav-item.done .nav-check{opacity:1}
 
 /* Main Content */
 #main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);padding:32px 40px 80px;max-width:960px}
@@ -48,7 +51,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .section{margin-bottom:64px;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
 .section.visible{opacity:1;transform:none}
 .section-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid var(--border)}
-.section-num{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-num{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .section-title{font-size:1.6rem;font-weight:700}
 .section-subtitle{font-size:.95rem;color:var(--text2);margin-top:2px}
 
@@ -58,7 +61,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .card-title .icon{font-size:1.2rem}
 
 /* Concept Card */
-.concept-card{background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(188,140,255,.08));border:1px solid rgba(88,166,255,.2);border-radius:12px;padding:20px 24px;margin-bottom:20px;font-size:1.05rem}
+.concept-card{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(109,40,217,.06));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:20px 24px;margin-bottom:20px;font-size:1.05rem}
 .concept-card::before{content:'💡 一句话概念';display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px;font-weight:600}
 
 /* Code Block */
@@ -67,13 +70,13 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .code-lang{font-weight:600;text-transform:uppercase}
 .copy-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;transition:all .2s}
 .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
-.copy-btn.copied{color:var(--green);border-color:var(--green)}
+.copy-btn.copied{color:var(--accent);border-color:var(--accent)}
 pre{margin:0;padding:16px;background:var(--code-bg);overflow-x:auto;font-size:.85rem;line-height:1.6}
 code{font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace}
-pre code{color:var(--text)}
+pre code{color:#E0E0EC}
 
 /* Inline code */
-p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--accent3)}
+p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--accent)}
 
 /* Accordion */
 .accordion{border:1px solid var(--border);border-radius:8px;margin:12px 0;overflow:hidden}
@@ -88,23 +91,23 @@ p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;f
 /* Do / Don't */
 .do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
 .do-card,.dont-card{border-radius:10px;padding:16px 20px}
-.do-card{background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.25)}
-.dont-card{background:rgba(248,81,73,.06);border:1px solid rgba(248,81,73,.25)}
-.do-card::before{content:'✅ Do';font-weight:700;color:var(--green);display:block;margin-bottom:8px;font-size:.9rem}
-.dont-card::before{content:'❌ Don\'t';font-weight:700;color:var(--red);display:block;margin-bottom:8px;font-size:.9rem}
+.do-card{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15)}
+.dont-card{background:rgba(109,40,217,.06);border:1px solid rgba(109,40,217,.15)}
+.do-card::before{content:'✅ Do';font-weight:700;color:var(--accent);display:block;margin-bottom:8px;font-size:.9rem}
+.dont-card::before{content:'❌ Don\'t';font-weight:700;color:var(--accent2);display:block;margin-bottom:8px;font-size:.9rem}
 .do-card li,.dont-card li{font-size:.9rem;margin-bottom:4px;color:var(--text2)}
 
 /* Warning Box */
-.warning-box{background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.3);border-left:4px solid var(--yellow);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
-.warning-box::before{content:'⚠️ 注意';display:block;font-weight:700;color:var(--yellow);margin-bottom:4px;font-size:.85rem}
+.warning-box{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.warning-box::before{content:'⚠️ 注意';display:block;font-weight:700;color:var(--accent);margin-bottom:4px;font-size:.85rem}
 
 /* Tip Box */
-.tip-box{background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.2);border-left:4px solid var(--green);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
-.tip-box::before{content:'💡 提示';display:block;font-weight:700;color:var(--green);margin-bottom:4px;font-size:.85rem}
+.tip-box{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-left:4px solid var(--accent2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.tip-box::before{content:'💡 提示';display:block;font-weight:700;color:var(--accent2);margin-bottom:4px;font-size:.85rem}
 
 /* Prompt Template */
-.prompt-tpl{background:linear-gradient(135deg,rgba(247,120,186,.06),rgba(188,140,255,.06));border:1px solid rgba(247,120,186,.2);border-radius:10px;padding:16px 20px;margin:12px 0}
-.prompt-tpl::before{content:'🎯 实战 Prompt 模板';display:block;font-weight:700;color:var(--accent4);margin-bottom:8px;font-size:.85rem}
+.prompt-tpl{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(109,40,217,.06));border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:16px 20px;margin:12px 0}
+.prompt-tpl::before{content:'🎯 实战 Prompt 模板';display:block;font-weight:700;color:var(--accent);margin-bottom:8px;font-size:.85rem}
 
 /* Flow Chart */
 .flow{display:flex;align-items:center;gap:0;margin:20px 0;flex-wrap:wrap;justify-content:center}
@@ -118,20 +121,20 @@ p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;f
 table{width:100%;border-collapse:collapse;font-size:.88rem}
 th{background:var(--bg3);text-align:left;padding:10px 14px;border:1px solid var(--border);font-weight:600;color:var(--accent);white-space:nowrap}
 td{padding:10px 14px;border:1px solid var(--border);color:var(--text2)}
-tr:hover td{background:rgba(88,166,255,.04)}
+tr:hover td{background:rgba(124,58,237,.04)}
 
 /* Checkbox */
 .learn-check{display:flex;align-items:center;gap:10px;margin-top:24px;padding:12px 16px;background:var(--bg3);border-radius:8px;cursor:pointer;user-select:none;transition:background .2s}
 .learn-check:hover{background:var(--bg4)}
 .learn-check input{display:none}
 .check-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
-.learn-check input:checked~.check-box{background:var(--green);border-color:var(--green)}
+.learn-check input:checked~.check-box{background:var(--accent);border-color:var(--accent)}
 .learn-check input:checked~.check-box::after{content:'✓';color:var(--bg);font-weight:700;font-size:.8rem}
 .learn-check .check-label{font-weight:600;font-size:.95rem}
 
 /* Quick Reference */
 #quickref{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;margin-top:48px}
-#quickref h2{font-size:1.4rem;margin-bottom:20px;text-align:center;background:linear-gradient(90deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#quickref h2{font-size:1.4rem;margin-bottom:20px;text-align:center;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .qr-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:.85rem}
 .qr-cmd{font-family:'Cascadia Code',Consolas,monospace;color:var(--accent);font-weight:600;min-width:100px}
@@ -179,8 +182,24 @@ h4{font-size:1rem;margin:16px 0 8px;color:var(--text)}
 <header id="topbar">
   <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
   <div class="logo">Claude Code <span>学习指南</span></div>
-  <div id="progress-wrap"><div id="progress-bar"></div></div>
-  <div id="progress-text">0%</div>
+  <div id="progress-wrap">
+    <div class="seg" data-seg="s1" title="1. Prompt Engineering"></div>
+    <div class="seg" data-seg="s2" title="2. CLAUDE.md 项目记忆"></div>
+    <div class="seg" data-seg="s3" title="3. 命令大全"></div>
+    <div class="seg" data-seg="s4" title="4. Claude Skills"></div>
+    <div class="seg" data-seg="s5" title="5. Memory 记忆系统"></div>
+    <div class="seg" data-seg="s6" title="6. Fast Mode"></div>
+    <div class="seg" data-seg="s7" title="7. Git Worktree"></div>
+    <div class="seg" data-seg="s8" title="8. Subagent 子代理"></div>
+    <div class="seg" data-seg="s9" title="9. Agent Teams"></div>
+    <div class="seg" data-seg="s10" title="10. Hooks + MCP"></div>
+    <div class="seg-divider"></div>
+    <div class="seg" data-seg="s11" title="模型选择指南"></div>
+    <div class="seg" data-seg="s12" title="Token 与用量管理"></div>
+    <div class="seg" data-seg="s13" title="常见错误汇总"></div>
+    <div class="seg" data-seg="quickref" title="命令速查表"></div>
+  </div>
+  <div id="progress-text">0/14</div>
 </header>
 
 <!-- Sidebar Overlay (mobile) -->
@@ -1314,11 +1333,18 @@ function updateNavDone(topic,done){
   if(nav) nav.classList.toggle('done',done);
 }
 function updateProgressBar(){
-  const all=document.querySelectorAll('.learn-check input');
-  const checked=document.querySelectorAll('.learn-check input:checked');
-  const pct=all.length?Math.round(checked.length/all.length*100):0;
-  document.getElementById('progress-bar').style.width=pct+'%';
-  document.getElementById('progress-text').textContent=pct+'%';
+  const segs=document.querySelectorAll('.seg');
+  const checks=document.querySelectorAll('.learn-check input');
+  const checkedTopics=new Set();
+  checks.forEach(c=>{if(c.checked)checkedTopics.add(c.dataset.topic)});
+  let done=0;
+  segs.forEach(s=>{
+    const id=s.dataset.seg;
+    const isDone=checkedTopics.has(id);
+    s.classList.toggle('done',isDone);
+    if(isDone)done++;
+  });
+  document.getElementById('progress-text').textContent=done+'/'+segs.length;
 }
 
 // ===== Init =====

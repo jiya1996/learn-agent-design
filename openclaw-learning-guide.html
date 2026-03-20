@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw 学习指南 — 多频道 AI Agent 网关架构解析</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F8F8FC;--bg2:#EEEDF5;--bg3:#E4E2F0;--bg4:#DBD8EC;
+  --text:#2E2B3D;--text2:#7E7A92;--text3:#9E9AB0;
+  --accent:#7C3AED;--accent2:#6D28D9;--accent3:#7C3AED;--accent4:#6D28D9;
+  --red:#7C3AED;--green:#7C3AED;--yellow:#7C3AED;--purple:#6D28D9;
+  --border:#CCC8E0;--border2:#DBD8EC;
+  --code-bg:#1E1B2E;--card:#EEEDF5;
+  --sidebar-w:280px;--topbar-h:52px;
+}
+html{scroll-behavior:smooth;font-size:15px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+/* Top Progress Bar */
+#topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--bg2);border-bottom:1px solid var(--border);z-index:1000;display:flex;align-items:center;padding:0 24px}
+#topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent);white-space:nowrap}
+#topbar .logo span{color:var(--text)}
+#progress-wrap{flex:1;margin:0 24px;height:8px;display:flex;gap:3px;align-items:stretch}
+.seg{flex:1;border-radius:2px;background:var(--bg4);transition:background .3s;cursor:pointer}
+.seg.done{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.seg:hover{opacity:.8}
+.seg-divider{width:6px;flex-shrink:0}
+#progress-text{font-size:.85rem;color:var(--text2);white-space:nowrap;min-width:60px;text-align:right}
+#menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;margin-right:12px}
+
+/* Sidebar */
+#sidebar{position:fixed;top:var(--topbar-h);left:0;width:var(--sidebar-w);height:calc(100vh - var(--topbar-h));background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;z-index:900;padding:16px 0;transition:transform .3s ease}
+#sidebar::-webkit-scrollbar{width:4px}#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.nav-section{padding:8px 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:12px}
+.nav-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:all .2s;font-size:.9rem;color:var(--text2);gap:10px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{border-left-color:var(--accent);color:var(--accent);background:rgba(124,58,237,.08)}
+.nav-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.7rem;font-weight:700;background:var(--bg4);color:var(--text3);flex-shrink:0}
+.nav-item.active .nav-num{background:var(--accent);color:var(--bg)}
+.nav-item.done .nav-num{background:var(--accent2);color:var(--bg)}
+.nav-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-check{font-size:.9rem;color:var(--accent2);opacity:0;transition:opacity .2s}.nav-item.done .nav-check{opacity:1}
+
+/* Main Content */
+#main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);padding:32px 40px 80px;max-width:960px}
+
+/* Section */
+.section{margin-bottom:64px;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
+.section.visible{opacity:1;transform:none}
+.section-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+.section-num{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-title{font-size:1.6rem;font-weight:700}
+.section-subtitle{font-size:.95rem;color:var(--text2);margin-top:2px}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.card-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .icon{font-size:1.2rem}
+
+/* Concept Card */
+.concept-card{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(109,40,217,.06));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:20px 24px;margin-bottom:20px;font-size:1.05rem}
+.concept-card::before{content:'💡 一句话概念';display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px;font-weight:600}
+
+/* Code Block */
+.code-wrap{position:relative;margin:12px 0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--bg4);font-size:.75rem;color:var(--text3)}
+.code-lang{font-weight:600;text-transform:uppercase}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;transition:all .2s}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+.copy-btn.copied{color:var(--accent);border-color:var(--accent)}
+pre{margin:0;padding:16px;background:var(--code-bg);overflow-x:auto;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace}
+pre code{color:#E0E0EC}
+
+/* Inline code */
+p code,li code,td code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--accent)}
+
+/* Accordion */
+.accordion{border:1px solid var(--border);border-radius:8px;margin:12px 0;overflow:hidden}
+.acc-header{display:flex;align-items:center;padding:12px 16px;background:var(--bg3);cursor:pointer;user-select:none;gap:8px;font-weight:600;font-size:.95rem;transition:background .2s}
+.acc-header:hover{background:var(--bg4)}
+.acc-arrow{transition:transform .3s;font-size:.7rem;color:var(--text3)}
+.acc-header.open .acc-arrow{transform:rotate(90deg)}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.acc-body.open{max-height:3000px}
+.acc-content{padding:16px}
+
+/* Do / Don't */
+.do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.do-card,.dont-card{border-radius:10px;padding:16px 20px}
+.do-card{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15)}
+.dont-card{background:rgba(109,40,217,.06);border:1px solid rgba(109,40,217,.15)}
+.do-card::before{content:'✅ Do';font-weight:700;color:var(--accent);display:block;margin-bottom:8px;font-size:.9rem}
+.dont-card::before{content:'❌ Don\'t';font-weight:700;color:var(--accent2);display:block;margin-bottom:8px;font-size:.9rem}
+.do-card li,.dont-card li{font-size:.9rem;margin-bottom:4px;color:var(--text2)}
+
+/* Warning Box */
+.warning-box{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.warning-box::before{content:'⚠️ 注意';display:block;font-weight:700;color:var(--accent);margin-bottom:4px;font-size:.85rem}
+
+/* Tip Box */
+.tip-box{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);border-left:4px solid var(--accent2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:.9rem}
+.tip-box::before{content:'💡 提示';display:block;font-weight:700;color:var(--accent2);margin-bottom:4px;font-size:.85rem}
+
+/* Prompt Template */
+.prompt-tpl{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(109,40,217,.06));border:1px solid rgba(124,58,237,.15);border-radius:10px;padding:16px 20px;margin:12px 0}
+.prompt-tpl::before{content:'🎯 实战 Prompt 模板';display:block;font-weight:700;color:var(--accent);margin-bottom:8px;font-size:.85rem}
+
+/* Flow Chart */
+.flow{display:flex;align-items:center;gap:0;margin:20px 0;flex-wrap:wrap;justify-content:center}
+.flow-step{background:linear-gradient(135deg,var(--bg3),var(--bg4));border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;min-width:120px;position:relative}
+.flow-step .step-title{font-weight:700;font-size:.95rem;margin-bottom:4px}
+.flow-step .step-desc{font-size:.78rem;color:var(--text2)}
+.flow-arrow{font-size:1.3rem;color:var(--accent);margin:0 4px;flex-shrink:0}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{background:var(--bg3);text-align:left;padding:10px 14px;border:1px solid var(--border);font-weight:600;color:var(--accent);white-space:nowrap}
+td{padding:10px 14px;border:1px solid var(--border);color:var(--text2)}
+tr:hover td{background:rgba(124,58,237,.04)}
+
+/* Checkbox */
+.learn-check{display:flex;align-items:center;gap:10px;margin-top:24px;padding:12px 16px;background:var(--bg3);border-radius:8px;cursor:pointer;user-select:none;transition:background .2s}
+.learn-check:hover{background:var(--bg4)}
+.learn-check input{display:none}
+.check-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.learn-check input:checked~.check-box{background:var(--accent);border-color:var(--accent)}
+.learn-check input:checked~.check-box::after{content:'✓';color:var(--bg);font-weight:700;font-size:.8rem}
+.learn-check .check-label{font-weight:600;font-size:.95rem}
+
+/* Quick Reference */
+#quickref{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;margin-top:48px}
+#quickref h2{font-size:1.4rem;margin-bottom:20px;text-align:center;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.qr-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:.85rem}
+.qr-cmd{font-family:'Cascadia Code',Consolas,monospace;color:var(--accent);font-weight:600;min-width:100px}
+.qr-desc{color:var(--text2)}
+
+/* Compare grid (kept for content) */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.compare-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:16px 0}
+.cg-col{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.cg-col h4{margin-top:0;font-size:1rem;color:var(--accent);margin-bottom:8px}
+.cg-col p{font-size:.9rem}
+
+/* Responsive */
+@media(max-width:900px){
+  #menu-toggle{display:block}
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #main{margin-left:0;padding:24px 16px 80px}
+  .do-dont{grid-template-columns:1fr}
+  .flow{flex-direction:column}
+  .flow-arrow{transform:rotate(90deg)}
+  .compare-grid{grid-template-columns:1fr}
+  .compare-grid-3{grid-template-columns:1fr}
+}
+
+/* Lists */
+ul,ol{padding-left:20px;margin:8px 0}
+li{margin-bottom:4px;color:var(--text2)}
+li strong{color:var(--text)}
+
+/* Paragraphs */
+p{margin:8px 0;color:var(--text2)}
+
+/* Sub-headings in sections */
+h3{font-size:1.15rem;margin:24px 0 12px;color:var(--text);border-left:3px solid var(--accent);padding-left:12px}
+h4{font-size:1rem;margin:16px 0 8px;color:var(--text)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Overlay for mobile sidebar */
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:899}
+#sidebar-overlay.show{display:block}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="logo">OpenClaw <span>学习指南</span></div>
+  <div id="progress-wrap">
+    <div class="seg" data-seg="overview" title="1. 项目全景图"></div>
+    <div class="seg" data-seg="agent-loop" title="2. Agent 循环"></div>
+    <div class="seg" data-seg="tools" title="3. 工具系统"></div>
+    <div class="seg" data-seg="channels" title="4. 多频道路由"></div>
+    <div class="seg" data-seg="context" title="5. 上下文与记忆"></div>
+    <div class="seg" data-seg="skills" title="6. Skills"></div>
+    <div class="seg-divider"></div>
+    <div class="seg" data-seg="security" title="安全模型"></div>
+    <div class="seg" data-seg="compare" title="对照表"></div>
+    <div class="seg" data-seg="learning" title="学习建议"></div>
+  </div>
+  <div id="progress-text">0/9</div>
+</header>
+
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<nav id="sidebar">
+  <div class="nav-section">核心模块</div>
+  <div class="nav-item" data-target="overview" onclick="navTo('overview')"><span class="nav-num">1</span><span class="nav-label">项目全景图</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="agent-loop" onclick="navTo('agent-loop')"><span class="nav-num">2</span><span class="nav-label">Agent 循环</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="tools" onclick="navTo('tools')"><span class="nav-num">3</span><span class="nav-label">工具系统</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="channels" onclick="navTo('channels')"><span class="nav-num">4</span><span class="nav-label">多频道路由</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="context" onclick="navTo('context')"><span class="nav-num">5</span><span class="nav-label">上下文与记忆</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="skills" onclick="navTo('skills')"><span class="nav-num">6</span><span class="nav-label">Skills 与扩展</span><span class="nav-check">✓</span></div>
+
+  <div class="nav-section">附加模块</div>
+  <div class="nav-item" data-target="security" onclick="navTo('security')"><span class="nav-num">+</span><span class="nav-label">安全模型</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="compare" onclick="navTo('compare')"><span class="nav-num">+</span><span class="nav-label">三项目对照表</span><span class="nav-check">✓</span></div>
+  <div class="nav-item" data-target="learning" onclick="navTo('learning')"><span class="nav-num">+</span><span class="nav-label">学习建议</span><span class="nav-check">✓</span></div>
+</nav>
+
+<main id="main">
+
+<!-- ==================== 阅读指南 ==================== -->
+<div class="tip-box">
+  <strong>阅读指南</strong><br>
+  本指南面向 PM / 非程序员读者，用现实世界类比解释每个模块，再附带关键代码注释。
+  你不需要运行任何代码，也不需要 API Key，纯粹通过阅读理解 AI Agent 系统的设计。
+  <br><br>
+  <strong>OpenClaw 是什么？</strong> 一个开源的多频道 AI Agent 网关 — 把一个智能助手同时部署到 Slack、Discord、Telegram、WhatsApp 等 20+ 平台上，且每个频道可以有不同的工具权限和行为。
+</div>
+
+<!-- TypeScript 速查 -->
+<div class="card">
+<div class="card-title"><span class="icon">📖</span>TypeScript for C 读者速查</div>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>TypeScript 语法</th><th>C 类比</th><th>例子</th></tr>
+    <tr><td><code>const x = 5</code></td><td><code>const int x = 5</code>（不可变）</td><td>声明常量</td></tr>
+    <tr><td><code>let y = 5</code></td><td><code>int y = 5</code>（可变）</td><td>声明变量</td></tr>
+    <tr><td><code>async / await</code></td><td>无直接对应，想象成"等快递"</td><td><code>const res = await fetch(url)</code> — 发请求，等回来再继续</td></tr>
+    <tr><td><code>interface Foo { name: string }</code></td><td><code>struct Foo { char* name; }</code></td><td>定义数据形状</td></tr>
+    <tr><td><code>(x) => x + 1</code></td><td>匿名函数 / lambda</td><td><code>arr.map((x) => x * 2)</code> — 对数组每项操作</td></tr>
+    <tr><td><code>type A = "x" | "y"</code></td><td><code>enum { X, Y }</code></td><td>联合类型 = 只能是这几个值之一</td></tr>
+    <tr><td><code>obj?.prop</code></td><td><code>obj ? obj->prop : NULL</code></td><td>可选链：如果 obj 是 null 就不崩溃</td></tr>
+  </table>
+  </div>
+</div>
+
+
+<!-- ====================================================================== -->
+<!--                          1. 项目全景图                                  -->
+<!-- ====================================================================== -->
+<section class="section" id="overview">
+
+<div class="section-header">
+  <span class="section-num">01</span>
+  <div><div class="section-title">项目全景图</div>
+  <div class="section-subtitle">Hub-and-Spoke 架构、技术栈、定位对比</div></div>
+</div>
+
+<div class="concept-card">
+想象一个大型呼叫中心。客户从不同渠道打来电话（Slack、Discord、Telegram...），前台（Router）把电话转给正确的客服（Agent），客服查资料（Tools）、写笔记（Memory），最后回复客户。OpenClaw 就是这个呼叫中心的全部基础设施。
+</div>
+
+<h3>Hub-and-Spoke 架构</h3>
+
+<div class="card">
+<pre><code>                    ┌──────────┐
+                    │  Slack   │──┐
+                    └──────────┘  │
+                    ┌──────────┐  │     ┌─────────────┐     ┌──────────────┐
+                    │ Discord  │──┼────→│   Router     │────→│  Agent Loop  │
+                    └──────────┘  │     │ (resolve-    │     │ (run.ts)     │
+                    ┌──────────┐  │     │  route.ts)   │     │              │
+                    │ Telegram │──┤     └─────────────┘     │  ┌────────┐  │
+                    └──────────┘  │           │              │  │ Tools  │  │
+                    ┌──────────┐  │           │              │  ├────────┤  │
+                    │ WhatsApp │──┤     ┌─────────────┐     │  │ Memory │  │
+                    └──────────┘  │     │  Session     │     │  ├────────┤  │
+                    ┌──────────┐  │     │  State       │     │  │ Skills │  │
+                    │ 15+ more │──┘     │  Machine     │     │  └────────┘  │
+                    └──────────┘        └─────────────┘     └──────────────┘
+                                                                    │
+                                                              ┌─────┴─────┐
+                                                              │ LLM API   │
+                                                              │ Anthropic │
+                                                              │ OpenAI    │
+                                                              │ Google    │
+                                                              └───────────┘</code></pre>
+</div>
+
+<h3>技术栈总览</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>层</th><th>技术</th><th>说明</th></tr>
+  <tr><td>语言</td><td>TypeScript (Node.js 22.16+)</td><td>全栈 JS 生态，一种语言写完前后端</td></tr>
+  <tr><td>包管理</td><td>pnpm 10.23</td><td>比 npm 更快、更省磁盘的包管理器</td></tr>
+  <tr><td>Agent 引擎</td><td>自研 pi-embedded-runner</td><td>内嵌式 Agent 循环，不依赖外部框架</td></tr>
+  <tr><td>频道插件</td><td>20+ 平台适配器</td><td>每个平台一个插件，懒加载按需启用</td></tr>
+  <tr><td>向量数据库</td><td>LanceDB (sqlite-vec)</td><td>长期记忆用向量相似度搜索</td></tr>
+  <tr><td>LLM 适配</td><td>Anthropic / OpenAI / Google / xAI</td><td>多模型工厂模式，可热切换</td></tr>
+</table>
+</div>
+
+<h3>三个项目定位对比</h3>
+
+<div class="compare-grid-3">
+  <div class="cg-col">
+    <h4>Open Code (Go)</h4>
+    <p><strong>定位：</strong>单用户 CLI 编码助手</p>
+    <p><strong>类比：</strong>一个人的工作台</p>
+    <p><strong>核心：</strong>Agent Loop + 12 工具 + TUI</p>
+    <p><strong>频道：</strong>仅终端</p>
+    <p><strong>记忆：</strong>无长期记忆</p>
+  </div>
+  <div class="cg-col">
+    <h4>Learn Claude Code (Python)</h4>
+    <p><strong>定位：</strong>教学用最小实现</p>
+    <p><strong>类比：</strong>乐高积木教程</p>
+    <p><strong>核心：</strong>12 课递进式 Agent</p>
+    <p><strong>频道：</strong>仅终端</p>
+    <p><strong>记忆：</strong>文件系统持久化</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw (TypeScript)</h4>
+    <p><strong>定位：</strong>多频道 AI Agent 网关</p>
+    <p><strong>类比：</strong>呼叫中心基础设施</p>
+    <p><strong>核心：</strong>路由 + Agent + 20+ 频道</p>
+    <p><strong>频道：</strong>Slack/Discord/Telegram/...</p>
+    <p><strong>记忆：</strong>向量数据库长期记忆</p>
+  </div>
+</div>
+
+<h3>核心源码地图</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Tier</th><th>模块</th><th>关键文件</th><th>一句话</th></tr>
+  <tr><td>1</td><td>Agent 循环</td><td><code>src/agents/pi-embedded-runner/run.ts</code></td><td>1700 行重试循环 = Agent 的心脏</td></tr>
+  <tr><td>1</td><td>单次尝试</td><td><code>src/agents/pi-embedded-runner/run/attempt.ts</code></td><td>一次 LLM API 调用的全过程</td></tr>
+  <tr><td>1</td><td>工具创建</td><td><code>src/agents/pi-tools.ts</code></td><td>626 行工具创建 + 7 层策略过滤</td></tr>
+  <tr><td>1</td><td>工具策略</td><td><code>src/agents/tool-policy.ts</code></td><td>allow/deny 声明式权限规则</td></tr>
+  <tr><td>2</td><td>会话管理</td><td><code>src/channels/session.ts</code></td><td>消息 → Agent 的会话映射</td></tr>
+  <tr><td>2</td><td>状态机</td><td><code>src/channels/run-state-machine.ts</code></td><td>追踪 Agent 是否正在运行</td></tr>
+  <tr><td>2</td><td>消息路由</td><td><code>src/routing/resolve-route.ts</code></td><td>消息从频道到 Agent 的路径决策</td></tr>
+  <tr><td>3</td><td>上下文压缩</td><td><code>src/agents/pi-embedded-runner/compact.ts</code></td><td>对话太长时自动摘要压缩</td></tr>
+  <tr><td>3</td><td>系统提示词</td><td><code>src/agents/pi-embedded-runner/system-prompt.ts</code></td><td>动态拼装 Agent 的"人设"</td></tr>
+  <tr><td>3</td><td>长期记忆</td><td><code>src/memory/</code></td><td>向量 embedding + 相似度搜索</td></tr>
+  <tr><td>4</td><td>Skills</td><td><code>skills/</code> 目录</td><td>52 个 YAML+Markdown 知识包</td></tr>
+  <tr><td>4</td><td>安全</td><td><code>src/security/dangerous-tools.ts</code></td><td>危险工具分级清单</td></tr>
+</table>
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="overview" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完项目全景图</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          2. Agent 循环                                  -->
+<!-- ====================================================================== -->
+<section class="section" id="agent-loop">
+
+<div class="section-header">
+  <span class="section-num">02</span>
+  <div><div class="section-title">Agent 循环</div>
+  <div class="section-subtitle">run.ts 的重试循环逐行解析</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"不断重试，直到成功或彻底放弃 — 这就是 Agent 的生存哲学"</p>
+
+<div class="concept-card">
+想象一个客服打电话给专家（LLM）请教问题。如果专家那边占线（overload），客服会等一会儿再拨；如果专家的手机没信号（auth 过期），客服换一个号码拨；如果双方说到一半对话记录太多本子写不下了（context overflow），客服把前面的内容总结一下，从摘要继续。这就是 <code>run.ts</code> 的核心逻辑。
+</div>
+
+<h3>重试循环的宏观流程</h3>
+
+<div class="card">
+<pre><code>runEmbeddedPiAgent()
+    │
+    ├─ 初始化：workspace、session、auth profiles
+    │
+    ├─ 计算最大重试次数：
+    │   BASE = 24 + profiles × 8 = 最少 32，最多 160
+    │
+    └─ while (attempt &lt; maxRetries):
+        │
+        ├─→ runEmbeddedAttempt()   ← 单次 LLM API 调用
+        │       │
+        │       ├─ 构建 system prompt
+        │       ├─ 准备 tools 清单
+        │       ├─ 调用 LLM 流式 API
+        │       └─ 返回结果 or 错误
+        │
+        ├─ 检查结果 ─┬─ 成功 → 提取 tool calls → 执行 → 累计 usage → 继续
+        │            │
+        │            ├─ billing error → 记录，退出
+        │            │
+        │            ├─ auth error → 刷新 token / 切换 profile → 重试
+        │            │
+        │            ├─ overload → 指数退避 (250ms → 1.5s) → 重试
+        │            │
+        │            ├─ timeout → 重试
+        │            │
+        │            └─ context overflow → 触发 compact.ts → 压缩后重试
+        │
+        └─ 累计 token usage（input + output + cache read/write）</code></pre>
+</div>
+
+<h3>关键代码注释</h3>
+
+<h4>重试常量</h4>
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 基础重试次数 — 无论有多少 auth profile，至少重试 24+8=32 次
+const BASE_RUN_RETRY_ITERATIONS = 24;
+const RUN_RETRY_ITERATIONS_PER_PROFILE = 8;
+
+// 退避策略：服务端 overload 时，每次等待时间递增
+const OVERLOAD_FAILOVER_BACKOFF_POLICY = [
+  250,   // 第 1 次：等 0.25 秒
+  500,   // 第 2 次：等 0.5 秒
+  750,   // 第 3 次：等 0.75 秒
+  1000,  // 第 4 次：等 1 秒
+  1500,  // 第 5 次及以后：等 1.5 秒
+];</code></pre>
+</div>
+
+<h4>Auth Profile 轮转</h4>
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// RuntimeAuthState — 管理多组 API 密钥，像有多张电话卡
+type RuntimeAuthState = {
+  sourceApiKey: string;      // 当前使用的 API key
+  authMode: string;           // 认证模式
+  profileId?: string;        // 当前 profile 标识
+  expiresAt?: number;        // token 过期时间
+  refreshTimer?: ...;          // 定时刷新器
+  refreshInFlight?: Promise;   // 是否正在刷新中（防并发）
+};
+
+// 一号卡余额不足？换二号卡 → 二号也不行？换三号...
+// 所有卡都用完了？回到一号卡重试（它可能已经恢复了）</code></pre>
+</div>
+
+<h4>Usage 累计器</h4>
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 每次 LLM 调用的消耗都累加到这里，最终汇报给用户
+type UsageAccumulator = {
+  input: number;        // 总输入 token 数
+  output: number;       // 总输出 token 数
+  cacheRead: number;    // 从缓存读取（节省费用！）
+  cacheWrite: number;   // 写入缓存的 token
+  total: number;        // 总计
+};</code></pre>
+</div>
+
+<div class="compare-grid">
+  <div class="cg-col">
+    <h4>Open Code 的 Agent 循环</h4>
+    <p><code>processGeneration</code> 的 <code>for</code> 循环</p>
+    <p>简洁：调 LLM → 有工具就执行 → 没工具就结束</p>
+    <p>无 auth 轮转（单用户）</p>
+    <p>无退避策略</p>
+    <p>~80 行核心逻辑</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw 的 Agent 循环</h4>
+    <p><code>runEmbeddedPiAgent</code> 的 <code>while</code> 循环</p>
+    <p>复杂：32-160 次重试 + 多 profile 轮转</p>
+    <p>多 auth profile 自动切换</p>
+    <p>指数退避 250ms → 1.5s</p>
+    <p>1700 行（含所有错误处理）</p>
+  </div>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>Open Code 的循环是"理想路径"（happy path），OpenClaw 的循环是"生产路径"（production path）。
+  差别不在于 LLM 调用本身，而在于<strong>所有可能出错的地方都有对策</strong>：auth 过期、费用超限、服务过载、上下文溢出。
+  这就是"玩具项目"和"生产系统"的本质区别。
+</div>
+
+<div class="accordion">
+  <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span>深入：单次尝试 attempt.ts 做了什么</div>
+  <div class="acc-body"><div class="acc-content">
+  <p><code>runEmbeddedAttempt()</code> 是循环体内每次调用的核心函数：</p>
+  <ol>
+    <li><strong>准备 session</strong> — 组装对话历史（messages）、可用工具列表、system prompt</li>
+    <li><strong>调 LLM 流式 API</strong> — 发送请求，逐 token 接收回复</li>
+    <li><strong>解析响应</strong> — 从流中提取 tool_use 调用和文本回复</li>
+    <li><strong>处理 provider 差异</strong> — Anthropic、OpenAI、Google 的 API 格式不同，这里做统一适配</li>
+    <li><strong>记录 token 用量</strong> — 返回本次调用消耗的 token 数</li>
+  </ol>
+  </div></div>
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="agent-loop" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完 Agent 循环</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          3. 工具系统                                    -->
+<!-- ====================================================================== -->
+<section class="section" id="tools">
+
+<div class="section-header">
+  <span class="section-num">03</span>
+  <div><div class="section-title">工具系统</div>
+  <div class="section-subtitle">注册、Profile 分级、7 层策略管道</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"Agent 的能力边界 = 它能使用的工具集合"</p>
+
+<div class="concept-card">
+想象一个酒店的客房服务菜单。不同等级的房间看到的菜单不同：普通房（minimal）只有基本餐点，商务房（coding）加了咖啡和打印服务，总统套房（full）什么都能点。而且，酒店安保部门还有一份"禁止清单"— 某些物品不论什么房间都不让送。这就是 OpenClaw 的工具策略管道。
+</div>
+
+<h3>工具创建入口</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// pi-tools.ts — 创建工具清单的主函数
+// 注意参数对象有 50+ 个可选字段，涵盖了所有运行时上下文
+export function createOpenClawCodingTools(options?: {
+  agentId?: string;         // 哪个 Agent 在用
+  sandbox?: SandboxContext;   // 是否在沙箱中
+  sessionKey?: string;       // 当前会话标识
+  modelProvider?: string;    // 用的什么模型
+  groupId?: string;          // 哪个群组
+  groupChannel?: string;     // 哪个频道
+  // ... 更多配置
+}): AnyAgentTool[]            // 返回可用工具数组</code></pre>
+</div>
+
+<h3>7 层策略管道（Tool Policy Pipeline）</h3>
+
+<div class="card">
+<pre><code>基础工具（read, write, edit, exec, process...）
+    │
+    ├── + 平台特有工具（channel login 等）
+    ├── + OpenClaw 工具（message, browser, gateway 等）
+    │
+    ▼
+Layer 1: Profile 策略 ─────── minimal / coding / messaging / full
+    │                          普通房 / 商务房 / 会议室 / 总统套房
+    ▼
+Layer 2: Provider 策略 ────── 某些模型不支持某些工具
+    │                          例：xAI 模型禁用 web_search
+    ▼
+Layer 3: Global 策略 ──────── 全局 allow/deny 名单
+    │
+    ▼
+Layer 4: Agent 策略 ───────── 每个 Agent 可有独立规则
+    │
+    ▼
+Layer 5: Channel/Group 策略 ─ 频道级别限制
+    │                          例：#general 群不允许 exec
+    ▼
+Layer 6: Sandbox 策略 ──────── 沙箱环境额外限制
+    │
+    ▼
+Layer 7: Subagent 策略 ─────── 子代理只继承部分工具
+    │
+    ▼
+Owner-Only 过滤 ──── cron, gateway, whatsapp_login 等仅管理员可用
+    │
+    ▼
+JSON Schema 标准化 ── 适配不同 LLM provider 的参数格式
+    │
+    ▼
+Hooks 包装 ── before-tool-call / abort signals
+    │
+    ▼
+最终工具清单 → 发送给 LLM</code></pre>
+</div>
+
+<h3>Tool Profile 分级</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>Profile</th><th>类比</th><th>包含工具</th><th>适用场景</th></tr>
+  <tr>
+    <td><code>minimal</code></td>
+    <td>前台接待</td>
+    <td>read, 基础文本操作</td>
+    <td>只需回答问题的轻量 Agent</td>
+  </tr>
+  <tr>
+    <td><code>coding</code></td>
+    <td>软件工程师</td>
+    <td>read, write, edit, exec, grep, glob</td>
+    <td>编码任务（最常用）</td>
+  </tr>
+  <tr>
+    <td><code>messaging</code></td>
+    <td>客服人员</td>
+    <td>message, react, channel 操作</td>
+    <td>跨频道消息管理</td>
+  </tr>
+  <tr>
+    <td><code>full</code></td>
+    <td>超级管理员</td>
+    <td>以上全部 + gateway, cron, nodes</td>
+    <td>完全权限（仅 owner）</td>
+  </tr>
+</table>
+</div>
+
+<h3>策略声明语法</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 策略用简单的 allow/deny 列表声明
+type ToolPolicyLike = {
+  allow?: string[];  // 明确允许的工具
+  deny?: string[];   // 明确禁止的工具
+};
+
+// 例子：这个频道只允许读操作，禁止执行命令
+const channelPolicy = {
+  allow: ["read", "grep", "glob"],
+  deny: ["exec", "write", "gateway"]
+};</code></pre>
+</div>
+
+<div class="compare-grid">
+  <div class="cg-col">
+    <h4>Open Code 的工具系统</h4>
+    <p><code>CoderAgentTools()</code> 返回固定工具清单</p>
+    <p>12 个工具，不可动态增减</p>
+    <p>权限控制在 <code>permission.go</code>（运行时 ask 用户）</p>
+    <p>无 Profile 分级</p>
+    <p>子代理只有只读工具子集</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw 的工具系统</h4>
+    <p><code>createOpenClawCodingTools()</code> 动态组装</p>
+    <p>工具数量可变（取决于 profile + 策略）</p>
+    <p>7 层声明式策略管道（编译时过滤）</p>
+    <p>4 级 Profile 分级</p>
+    <p>Skills 可注入额外工具</p>
+  </div>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>Open Code 是"先给所有工具，运行时问用户要不要执行"（<strong>运行时权限</strong>）。
+  OpenClaw 是"先根据身份和场景算好你能用什么，然后只给你这些"（<strong>编译时策略</strong>）。
+  前者适合单用户交互场景，后者适合多租户无人值守场景。
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="tools" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完工具系统</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          4. 多频道路由                                  -->
+<!-- ====================================================================== -->
+<section class="section" id="channels">
+
+<div class="section-header">
+  <span class="section-num">04</span>
+  <div><div class="section-title">多频道路由</div>
+  <div class="section-subtitle">消息从 Telegram 到 Agent 的完整旅程</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"一个 Agent，同时活在 20 个世界里"</p>
+
+<div class="concept-card">
+想象一家全球连锁酒店。旅客从不同入口（机场接驳、出租车、地铁）到达前台。前台根据预约信息（binding）找到对应的客房管家（Agent）。管家记得每位旅客的偏好（session），正在为一位客人服务时会挂出"忙碌中"的牌子（state machine）。这就是 OpenClaw 的多频道路由系统。
+</div>
+
+<h3>一条消息的完整旅程</h3>
+
+<div class="card">
+<pre><code>用户在 Telegram 发送 "帮我看看这段代码"
+    │
+    ▼
+[Channel Plugin: Telegram]
+    │  解析 message、sender、chat_id
+    ▼
+[resolve-route.ts] → 查 binding 表：
+    │  1. binding.peer      → 有没有专门绑定给这个用户？
+    │  2. binding.guild     → Discord 服务器级别绑定？
+    │  3. binding.team      → Teams 团队级别？
+    │  4. binding.account   → 账号级别？
+    │  5. binding.channel   → 频道级别？
+    │  6. default           → 兜底：用默认 Agent
+    │
+    ▼
+[ResolvedAgentRoute]
+    │  agentId: "claw"
+    │  sessionKey: "agent:claw:channel:telegram:peer:user:12345"
+    │  matchedBy: "binding.peer"
+    │
+    ▼
+[session.ts] → recordInboundSession()
+    │  记录会话、更新最后路由信息
+    │
+    ▼
+[run-state-machine.ts]
+    │  onRunStart() → activeRuns++, 开始心跳
+    │
+    ▼
+[runEmbeddedPiAgent()] → Agent 循环处理 → 生成回复
+    │
+    ▼
+[run-state-machine.ts]
+    │  onRunEnd() → activeRuns--, 停止心跳
+    │
+    ▼
+[Channel Plugin: Telegram] → 把回复发回 Telegram</code></pre>
+</div>
+
+<h3>Session Key 格式</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// Session Key = Agent 和用户之间的唯一对话标识
+// 格式：agent:{agentId}:channel:{channel}:peer:{peerKind}:{peerId}
+
+// 例子：
+"agent:claw:channel:slack:peer:user:U123"     // Slack 上的 U123 用户
+"agent:claw:channel:telegram:peer:user:12345" // Telegram 上的 12345 用户
+"agent:claw:channel:discord:peer:guild:G789"  // Discord 服务器级别
+
+// DM 作用域选项 — 控制会话隔离粒度：
+// "main"                → 所有人共享一个会话（像公共聊天室）
+// "per-peer"            → 每人一个会话（像私人助理）
+// "per-channel-peer"    → 每个频道×每人 一个会话
+// "per-account-channel-peer" → 最细粒度</code></pre>
+</div>
+
+<h3>Run State Machine</h3>
+
+<div class="card">
+<pre><code>lifecycle_active = true（初始化）
+    │
+    ▼
+onRunStart()
+    │  activeRuns++
+    │  publish status（通知频道：Agent 开始工作了）
+    │  start heartbeat（每 60 秒心跳一次）
+    │
+    ▼  ←── 心跳保活，防止频道认为 Agent 离线
+    │
+onRunEnd()
+    │  activeRuns--
+    │  if (activeRuns === 0) → 停止心跳
+    │  publish status（通知频道：Agent 空闲了）
+    │
+    ▼
+deactivate()（收到 abort 信号时）
+    │  停止所有更新</code></pre>
+</div>
+
+<h3>支持的 20+ 频道平台</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>频道</th><th>平台</th><th>特点</th></tr>
+  <tr><td>discord</td><td>Discord</td><td>支持 guild+role 级别路由、thread、reaction</td></tr>
+  <tr><td>slack</td><td>Slack</td><td>workspace 级路由、thread、emoji reaction</td></tr>
+  <tr><td>telegram</td><td>Telegram</td><td>bot API、inline 模式、群聊/私聊</td></tr>
+  <tr><td>whatsapp</td><td>WhatsApp</td><td>via Baileys 库、需 QR 登录</td></tr>
+  <tr><td>signal</td><td>Signal</td><td>端到端加密通信</td></tr>
+  <tr><td>imessage</td><td>iMessage</td><td>macOS 原生集成</td></tr>
+  <tr><td>bluebubbles</td><td>iMessage 中继</td><td>通过 BlueBubbles 服务器转发</td></tr>
+  <tr><td>line</td><td>LINE</td><td>亚洲流行即时通讯</td></tr>
+  <tr><td>feishu</td><td>飞书/Lark</td><td>企业工作平台</td></tr>
+  <tr><td>mattermost</td><td>Mattermost</td><td>开源 Slack 替代</td></tr>
+  <tr><td>irc</td><td>IRC</td><td>经典互联网聊天协议</td></tr>
+  <tr><td>matrix</td><td>Matrix/Element</td><td>去中心化通信协议</td></tr>
+  <tr><td>nostr</td><td>Nostr</td><td>去中心化社交协议</td></tr>
+  <tr><td>teams</td><td>MS Teams</td><td>微软企业通信</td></tr>
+  <tr><td>twitch</td><td>Twitch</td><td>直播平台聊天</td></tr>
+  <tr><td>nextcloud-talk</td><td>Nextcloud Talk</td><td>自托管通信</td></tr>
+  <tr><td>synology-chat</td><td>Synology Chat</td><td>NAS 内置聊天</td></tr>
+  <tr><td>zalo</td><td>Zalo</td><td>越南流行通讯软件</td></tr>
+</table>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>Open Code 和 Learn Claude Code 都只有一个"频道"— 终端。
+  OpenClaw 的多频道架构是<strong>它最独特的设计</strong>：同一个 Agent 同时服务于 20+ 平台。
+  这引入了 Open Code 完全不需要考虑的问题：路由决策、会话隔离、状态追踪、心跳保活。
+</div>
+
+<div class="accordion">
+  <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span>深入：Channel Plugin 的插件架构</div>
+  <div class="acc-body"><div class="acc-content">
+  <p>每个频道是一个独立插件，拥有：</p>
+  <ul>
+    <li><strong>消息接入管道</strong> — 接收并解析该平台格式的消息</li>
+    <li><strong>回复处理器</strong> — 把 Agent 输出转换成该平台格式发回</li>
+    <li><strong>账号/凭证管理</strong> — 存储 bot token、OAuth 密钥等</li>
+    <li><strong>频道特有能力声明</strong> — 比如 Discord 支持 reaction 和 thread，但 IRC 不支持</li>
+  </ul>
+  <p>插件通过 <code>channels/plugins/bundled.ts</code> 注册，运行时<strong>懒加载</strong>——只初始化用户配置了的频道，避免浪费资源。</p>
+  </div></div>
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="channels" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完多频道路由</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          5. 上下文与记忆                                -->
+<!-- ====================================================================== -->
+<section class="section" id="context">
+
+<div class="section-header">
+  <span class="section-num">05</span>
+  <div><div class="section-title">上下文与记忆</div>
+  <div class="section-subtitle">短期压缩 + 长期向量数据库</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"短期记忆让 Agent 能对话，长期记忆让 Agent 能成长"</p>
+
+<div class="concept-card">
+想象一个医生。<strong>短期记忆</strong>是今天看诊时的病历笔记——写满一页就总结上半页、翻到新页继续（context compaction）。<strong>长期记忆</strong>是医院的电子病历系统——通过关键词搜索以前的就诊记录（vector embedding search）。OpenClaw 两个都有，而 Open Code 只有短期的。
+</div>
+
+<h3>短期：上下文压缩 (compact.ts)</h3>
+
+<div class="card">
+<pre><code>对话消息越来越多...
+    │
+    ▼
+触发条件：
+    ├─ "overflow" — token 数超过模型窗口
+    └─ "manual"  — 用户手动请求
+    │
+    ▼
+分析 token 预算 vs 当前用量
+    │
+    ▼
+识别可压缩消息（旧的 user/assistant 交互、tool 结果）
+    │
+    ▼
+用 LLM 生成摘要（"把前 50 轮对话总结成 3 段话"）
+    │
+    ▼
+用摘要替换原始消息，保留最近的关键上下文
+    │
+    ▼
+重置 session → 用压缩后的历史继续运行</code></pre>
+</div>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// compact.ts — 压缩参数
+type CompactEmbeddedPiSessionParams = {
+  sessionId: string;        // 哪个会话
+  sessionFile: string;      // 会话文件路径
+  currentTokenCount?: number; // 当前 token 数
+  tokenBudget?: number;     // 目标 token 上限
+  force?: boolean;          // 强制压缩（即使没超限）
+  trigger?: "overflow" | "manual"; // 触发原因
+};</code></pre>
+</div>
+
+<h3>长期：向量记忆系统 (src/memory/)</h3>
+
+<div class="card">
+<pre><code>长期记忆写入流程：
+    │
+    ├─ 对话结束后，提取关键事实
+    │      "用户偏好 Python"
+    │      "上次讨论了 API 设计"
+    │
+    ├─ 调用 Embedding API 把文本转为向量
+    │      text → [0.12, -0.34, 0.78, ...]  (高维数字数组)
+    │
+    └─ 存入 LanceDB 向量数据库
+           向量 + 原始文本 + 时间戳
+
+长期记忆读取流程：
+    │
+    ├─ 新对话开始，用户说"我上次那个项目..."
+    │
+    ├─ 把查询文本转为向量
+    │
+    ├─ 在向量数据库中做 cosine 相似度搜索
+    │      找到最接近的几条记忆
+    │
+    └─ 把召回的记忆注入 system prompt
+           Agent 就"记起"了上次的对话</code></pre>
+</div>
+
+<h4>Embedding Provider 适配</h4>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Provider</th><th>文件</th><th>说明</th></tr>
+  <tr><td>OpenAI</td><td><code>batch-openai.ts</code></td><td>text-embedding-3-small 等</td></tr>
+  <tr><td>Google</td><td><code>batch-gemini.ts</code></td><td>Gemini embedding API</td></tr>
+  <tr><td>HTTP 通用</td><td><code>batch-http.ts</code></td><td>任何兼容 OpenAI 格式的 embedding 服务</td></tr>
+</table>
+</div>
+
+<div class="compare-grid-3">
+  <div class="cg-col">
+    <h4>Open Code</h4>
+    <p><strong>短期：</strong>Summarize() 生成摘要</p>
+    <p><strong>长期：</strong>无</p>
+    <p>单会话，关掉就忘了</p>
+  </div>
+  <div class="cg-col">
+    <h4>Learn Claude Code</h4>
+    <p><strong>短期：</strong>s06 三层压缩</p>
+    <p><strong>长期：</strong>文件系统持久化（s07-s08）</p>
+    <p>JSON 文件，无向量搜索</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw</h4>
+    <p><strong>短期：</strong>compact.ts overflow 压缩</p>
+    <p><strong>长期：</strong>LanceDB 向量 embedding</p>
+    <p>语义搜索，跨会话记忆</p>
+  </div>
+</div>
+
+<h3>System Prompt 动态组装</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// system-prompt.ts — 像拼乐高一样组装 Agent 的"人设"
+// 每个区块按条件拼接，最终生成完整的 system prompt
+
+[Agent 身份与约束]        ← 30+ 行硬编码指令
+    ↓
+[工具清单摘要]            ← toolNames.map(...) 自动生成
+    ↓
+[思维链引导]              ← 如果开启了 reasoning/thinking
+    ↓
+[频道能力声明]            ← "你在 Slack 上可以 react、edit、thread"
+    ↓
+[记忆搜索引导]            ← 如果开启了长期记忆
+    ↓
+[Skills 注入]             ← 已加载的 Skill 内容
+    ↓
+[Workspace 自定义指令]    ← Agent 的个性化配置
+    ↓
+[模型特定提示]            ← 不同 LLM 的特殊处理</code></pre>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>向量记忆是 OpenClaw 相比 Open Code 最大的技术升级之一。
+  它让 Agent 从"金鱼记忆"（每次对话从零开始）升级为"医生电子病历"（能回忆关键历史）。
+  代价是需要额外的 Embedding API 调用和向量数据库维护。
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="context" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完上下文与记忆</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          6. Skills 与扩展                               -->
+<!-- ====================================================================== -->
+<section class="section" id="skills">
+
+<div class="section-header">
+  <span class="section-num">06</span>
+  <div><div class="section-title">Skills 与扩展</div>
+  <div class="section-subtitle">52 个 Skill 分类、Extension 机制</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"Skills 不是工具，是知识 — 教 Agent 如何使用工具的说明书"</p>
+
+<div class="concept-card">
+想象一个新员工入职。公司不可能把所有部门的操作手册都塞给他（context 会爆），而是给他一本"目录手册"，列出所有可用的操作指南。当他需要某个特定操作时，去书架上找对应的手册借来看。Skill 就是这些操作手册——目录放在 system prompt 里，全文通过 tool_result 按需加载。
+</div>
+
+<h3>Skill 文件结构</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">YAML</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code># 每个 Skill 是一个目录，包含 YAML frontmatter 的 Markdown 文件
+skills/
+├── github/
+│   └── index.md          ← GitHub CLI 操作指南
+├── coding-agent/
+│   └── index.md          ← 如何 spawn 子 Agent
+├── discord/
+│   └── index.md          ← Discord 频道特有技巧
+├── slack/
+│   └── index.md          ← Slack 操作指南
+├── telegram/
+│   └── index.md          ← Telegram bot 技巧
+├── apple-notes/
+│   └── index.md          ← macOS 备忘录集成
+├── apple-reminders/
+│   └── index.md          ← macOS 提醒事项集成
+├── 1password/
+│   └── index.md          ← 密码管理器集成
+└── ... （共 52 个 Skill）</code></pre>
+</div>
+
+<h3>单个 Skill 的结构</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">YAML</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>---
+name: github
+description: "GitHub operations via `gh` CLI: issues, PRs, CI runs..."
+metadata:
+  openclaw:
+    emoji: "&#x1F419;"                 # 显示图标
+    requires:
+      bins: ["gh"]               # 依赖的命令行工具
+    install:
+      - id: brew
+        kind: brew
+        formula: gh
+        bins: ["gh"]
+        label: "Install GitHub CLI (brew)"
+---
+
+# 下面是 Markdown 正文
+## When to use
+- Creating/managing GitHub issues and PRs
+- Checking CI/CD run status
+
+## When NOT to use
+- Don't use for git operations (use git directly)
+
+## Common patterns
+- `gh issue create --title "..." --body "..."`
+- `gh pr create --fill`</code></pre>
+</div>
+
+<h3>Skill 加载机制</h3>
+
+<div class="card">
+<pre><code>Agent 初始化时：
+    │
+    ├─ 扫描 skills/ 目录
+    ├─ 读取每个 Skill 的 YAML frontmatter（name, description, requires）
+    ├─ 检查依赖是否满足（requires.bins 中的命令是否存在）
+    └─ 把 Skill 目录（name + description）写入 system prompt
+           "你可以使用以下 Skills: github, coding-agent, ..."
+
+Agent 运行时（按需加载）：
+    │
+    ├─ LLM 判断需要某个 Skill 的知识
+    ├─ 通过 tool_result 返回 Skill 全文
+    └─ Agent 获得该领域的详细操作指南</code></pre>
+</div>
+
+<h3>52 个 Skills 分类</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>类别</th><th>Skills</th><th>说明</th></tr>
+  <tr><td>开发工具</td><td>github, coding-agent</td><td>代码协作、子 Agent 编排</td></tr>
+  <tr><td>通信平台</td><td>discord, slack, telegram, ...</td><td>平台特有操作和技巧</td></tr>
+  <tr><td>系统集成</td><td>apple-notes, apple-reminders, 1password</td><td>macOS 和第三方服务</td></tr>
+  <tr><td>数据处理</td><td>各种专业领域 Skill</td><td>特定任务的知识注入</td></tr>
+</table>
+</div>
+
+<div class="compare-grid-3">
+  <div class="cg-col">
+    <h4>Open Code</h4>
+    <p>无 Skill 系统</p>
+    <p>所有指令硬编码在 system prompt</p>
+    <p>通过 MCP 工具扩展能力</p>
+  </div>
+  <div class="cg-col">
+    <h4>Learn Claude Code (s05)</h4>
+    <p>SKILL.md 文件</p>
+    <p>两层加载：目录 in prompt + 全文 via tool</p>
+    <p>教学演示版，约 3-5 个 Skill</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw</h4>
+    <p>52 个 YAML+Markdown Skill</p>
+    <p>同样两层加载 + 依赖检查 + 安装引导</p>
+    <p>production 级别，带版本管理</p>
+  </div>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>Skill 是 "知识"，Tool 是 "能力"。Skill 告诉 Agent <em>如何</em>使用工具（什么场景用、什么命令模式、什么注意事项），而 Tool 是实际执行动作的接口。
+  这个设计类比于：Tool = 锤子，Skill = 木工教材。两者缺一不可。
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="skills" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完 Skills 与扩展</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          7. 安全模型                                    -->
+<!-- ====================================================================== -->
+<section class="section" id="security">
+
+<div class="section-header">
+  <span class="section-num">07</span>
+  <div><div class="section-title">安全模型</div>
+  <div class="section-subtitle">DM pairing、危险工具清单</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"信任，但要验证 — 尤其是在多租户环境中"</p>
+
+<div class="concept-card">
+想象一座写字楼的安保系统。普通员工（channel user）刷卡只能到自己的楼层；经理（admin）可以到更多区域；只有大楼业主（owner）有万能钥匙。某些区域（如服务器机房）任何人进入都需要额外审批（dangerous tools）。通过 HTTP 远程访问的人比在场的人权限更低（gateway deny）。
+</div>
+
+<h3>危险工具分级</h3>
+
+<h4>Gateway HTTP 自动禁止的工具</h4>
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 通过 HTTP API 远程访问时，这些工具直接禁止
+// 原因：RCE 风险、需要终端交互、或在远程场景下无意义
+[
+  "sessions_spawn",    // 不能远程创建新会话
+  "sessions_send",     // 不能远程发送到其他会话
+  "cron",              // 不能远程创建定时任务
+  "gateway",           // 不能远程控制网关
+  "whatsapp_login",    // 需要扫 QR 码，远程做不了
+]</code></pre>
+</div>
+
+<h4>ACP（Automation Control Plane）危险工具</h4>
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 在自动化场景中（无人值守），这些工具始终需要明确审批
+[
+  "exec",             // 执行任意命令 — 最高风险
+  "spawn",            // 启动新进程
+  "shell",            // 打开 shell
+  "sessions_spawn",   // 创建新会话
+  "sessions_send",    // 向会话发消息
+  "gateway",          // 网关控制
+  "fs_write",         // 写文件
+  "fs_delete",        // 删文件
+  "fs_move",          // 移动文件
+  "apply_patch",      // 批量修改代码
+]</code></pre>
+</div>
+
+<h3>Owner-Only 工具</h3>
+
+<div class="code-wrap"><div class="code-header"><span class="code-lang">TypeScript</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>// 只有 senderIsOwner === true 时才可用
+// 普通用户看不到这些工具，连工具清单里都不会出现
+[
+  "whatsapp_login",   // 登录 WhatsApp 账号
+  "cron",             // 创建定时任务
+  "gateway",          // 控制 HTTP 网关
+  "nodes",            // 管理集群节点
+]</code></pre>
+</div>
+
+<h3>安全防护层次</h3>
+
+<div class="card">
+<pre><code>消息到达
+    │
+    ▼
+Layer 1: 频道认证 ──── 消息来自合法的 bot token / webhook？
+    │
+    ▼
+Layer 2: 身份识别 ──── sender 是 owner / admin / 普通用户？
+    │
+    ▼
+Layer 3: 路由绑定 ──── 该 sender 绑定了哪个 Agent？
+    │
+    ▼
+Layer 4: 工具策略 ──── 7 层策略管道过滤（见第 3 章）
+    │
+    ▼
+Layer 5: 危险工具 ──── gateway deny / ACP 审批
+    │
+    ▼
+Layer 6: Owner-Only ── 特权工具只对 owner 可见
+    │
+    ▼
+Layer 7: 沙箱隔离 ──── sandbox 模式下的额外限制</code></pre>
+</div>
+
+<div class="compare-grid">
+  <div class="cg-col">
+    <h4>Open Code 的权限模型</h4>
+    <p>运行时交互式：工具要执行 → 弹窗问用户</p>
+    <p>3 种批准方式：Grant / GrantPersistent / AutoApprove</p>
+    <p>单用户，不需要考虑多租户</p>
+    <p>无危险工具分级</p>
+    <p>信任边界：用户的终端</p>
+  </div>
+  <div class="cg-col">
+    <h4>OpenClaw 的安全模型</h4>
+    <p>编译时声明式：策略管道预过滤</p>
+    <p>7 层策略 + 危险工具分级 + Owner-Only</p>
+    <p>多租户，不同用户看到不同工具</p>
+    <p>Gateway / ACP 两级危险工具清单</p>
+    <p>信任边界：每个频道、每个用户</p>
+  </div>
+</div>
+
+<div class="tip-box">
+  <strong>核心洞察：</strong>安全模型的复杂度与使用场景直接相关。Open Code 面对的是"一个开发者坐在终端前"，所以交互式确认足够。
+  OpenClaw 面对的是"20 个平台上的不确定数量用户同时操作"，所以必须用声明式策略 + 分级审批 + owner 隔离的多层防护。
+  <strong>安全设计永远不是"够不够"，而是"场景要求什么"。</strong>
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="security" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完安全模型</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          8. 三项目对照表                                -->
+<!-- ====================================================================== -->
+<section class="section" id="compare">
+
+<div class="section-header">
+  <span class="section-num">08</span>
+  <div><div class="section-title">三项目对照表</div>
+  <div class="section-subtitle">OpenClaw vs Open Code vs Learn Claude Code</div></div>
+</div>
+
+<p style="border-left:3px solid var(--accent);padding:8px 16px;color:var(--text2);font-style:italic;font-size:.95em;margin:12px 0 18px">"同一个概念，在不同规模下有截然不同的实现"</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr>
+    <th>维度</th>
+    <th>Learn Claude Code (Python)</th>
+    <th>Open Code (Go)</th>
+    <th>OpenClaw (TypeScript)</th>
+  </tr>
+  <tr>
+    <td><strong>定位</strong></td>
+    <td>教学用最小实现</td>
+    <td>单用户 CLI 编码助手</td>
+    <td>多频道 AI Agent 网关</td>
+  </tr>
+  <tr>
+    <td><strong>Agent 循环</strong></td>
+    <td><code>while True</code> 简单循环<br>无重试，无退避</td>
+    <td><code>for</code> 循环 + 流式处理<br>无重试，有取消机制</td>
+    <td><code>while</code> 重试循环<br>32-160 次重试 + 指数退避 + auth 轮转</td>
+  </tr>
+  <tr>
+    <td><strong>工具注册</strong></td>
+    <td><code>TOOL_HANDLERS</code> dict<br>硬编码 1-16 个工具</td>
+    <td><code>CoderAgentTools()</code><br>固定 12 个工具</td>
+    <td><code>createOpenClawCodingTools()</code><br>动态组装 + 7 层策略过滤</td>
+  </tr>
+  <tr>
+    <td><strong>权限控制</strong></td>
+    <td>无（教学简化）</td>
+    <td>运行时 ask 用户<br>Grant / GrantPersistent</td>
+    <td>编译时策略管道<br>Profile + Policy + Owner-Only + 危险分级</td>
+  </tr>
+  <tr>
+    <td><strong>子代理</strong></td>
+    <td>s04: 同步调用<br>独立 messages，只返回文本</td>
+    <td>TaskAgent: 只读工具子集<br>子 Session 费用合并到父</td>
+    <td>Subagent: 策略继承<br>+ coding-agent Skill 可 spawn 外部 Agent</td>
+  </tr>
+  <tr>
+    <td><strong>频道</strong></td>
+    <td>仅终端</td>
+    <td>仅终端 (TUI)</td>
+    <td>20+ 平台插件<br>Discord / Slack / Telegram / WhatsApp / ...</td>
+  </tr>
+  <tr>
+    <td><strong>上下文压缩</strong></td>
+    <td>s06: 三层（micro/auto/manual）</td>
+    <td>Summarize() 摘要</td>
+    <td>compact.ts overflow 触发<br>+ manual 手动触发</td>
+  </tr>
+  <tr>
+    <td><strong>长期记忆</strong></td>
+    <td>s07-s08: JSON 文件持久化</td>
+    <td>无</td>
+    <td>LanceDB 向量数据库<br>embedding 语义搜索</td>
+  </tr>
+  <tr>
+    <td><strong>Skills</strong></td>
+    <td>s05: SKILL.md 两层加载</td>
+    <td>无（通过 MCP 扩展）</td>
+    <td>52 个 YAML+MD Skill<br>依赖检查 + 安装引导</td>
+  </tr>
+  <tr>
+    <td><strong>多模型</strong></td>
+    <td>仅 Anthropic</td>
+    <td>7+ Provider 工厂模式</td>
+    <td>Anthropic / OpenAI / Google / xAI<br>+ auth profile 轮转</td>
+  </tr>
+  <tr>
+    <td><strong>System Prompt</strong></td>
+    <td>硬编码字符串</td>
+    <td>prompt.go 拼装<br>基础 + 环境 + CLAUDE.md</td>
+    <td>system-prompt.ts 动态拼装<br>8 个区块按条件组合</td>
+  </tr>
+  <tr>
+    <td><strong>会话路由</strong></td>
+    <td>无（单用户单会话）</td>
+    <td>Session 列表<br>SQLite 持久化</td>
+    <td>resolve-route.ts 6 级路由匹配<br>+ session key 格式化</td>
+  </tr>
+  <tr>
+    <td><strong>团队协作</strong></td>
+    <td>s09-s12: MessageBus + Protocol + Worktree</td>
+    <td>无</td>
+    <td>多 Agent 可绑定不同频道<br>但无 Learn CC 级别的 Protocol FSM</td>
+  </tr>
+  <tr>
+    <td><strong>代码规模</strong></td>
+    <td>~775 LOC (最终版)</td>
+    <td>~数万 LOC</td>
+    <td>9500+ 文件，企业级规模</td>
+  </tr>
+</table>
+</div>
+
+<div class="tip-box">
+  <strong>三个项目的学习价值：</strong><br>
+  <strong>Learn Claude Code</strong> — 理解 Agent 的<em>本质</em>（核心循环不变，功能层层叠加）<br>
+  <strong>Open Code</strong> — 理解 Agent 的<em>工程实现</em>（Go 的并发模型、Provider 抽象、TUI 渲染）<br>
+  <strong>OpenClaw</strong> — 理解 Agent 的<em>规模化部署</em>（多频道路由、策略管道、向量记忆、重试容错）
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="compare" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完三项目对照表</span></label>
+</section>
+
+
+<!-- ====================================================================== -->
+<!--                          9. 学习建议                                    -->
+<!-- ====================================================================== -->
+<section class="section" id="learning">
+
+<div class="section-header">
+  <span class="section-num">09</span>
+  <div><div class="section-title">学习建议</div>
+  <div class="section-subtitle">推荐阅读顺序和时间分配</div></div>
+</div>
+
+<h3>推荐阅读顺序</h3>
+
+<div class="card">
+<div class="card-title"><span class="icon">1️⃣</span>先读 Agent 循环</div>
+<p><code>pi-embedded-runner/run.ts</code> 的宏观流程。不用逐行读 1700 行，先理解重试循环的 while 结构和 5 种错误处理分支。对比 Open Code 的 <code>processGeneration</code>，感受"生产代码"vs"教学代码"的差异。</p>
+</div>
+
+<div class="card">
+<div class="card-title"><span class="icon">2️⃣</span>再读工具策略管道</div>
+<p><code>pi-tools.ts</code> + <code>tool-policy.ts</code>。重点理解 7 层策略如何一层层过滤出最终工具清单。这是 OpenClaw 最优雅的设计之一——声明式策略比命令式 if-else 更清晰。</p>
+</div>
+
+<div class="card">
+<div class="card-title"><span class="icon">3️⃣</span>然后读多频道路由</div>
+<p><code>resolve-route.ts</code> + <code>session.ts</code>。这是 OpenClaw 独有的模块，理解消息如何从 20+ 平台路由到正确的 Agent 和 Session。</p>
+</div>
+
+<div class="card">
+<div class="card-title"><span class="icon">4️⃣</span>最后读记忆和 Skills</div>
+<p><code>compact.ts</code> + <code>memory/</code> + <code>skills/</code>。这些是"锦上添花"的模块，理解了前三步后，这些会很容易看懂。</p>
+</div>
+
+<h3>时间分配建议</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>模块</th><th>建议时间</th><th>难度</th><th>理由</th></tr>
+  <tr><td>Agent 循环 (run.ts)</td><td>2-3 小时</td><td>中高</td><td>文件很长，但核心结构清晰</td></tr>
+  <tr><td>工具策略管道</td><td>1-2 小时</td><td>中</td><td>概念直观，代码结构化好</td></tr>
+  <tr><td>多频道路由</td><td>1-2 小时</td><td>中</td><td>新概念多，但逻辑清晰</td></tr>
+  <tr><td>上下文与记忆</td><td>1 小时</td><td>低中</td><td>如果理解了 Open Code 的压缩，这里是升级版</td></tr>
+  <tr><td>Skills 与安全</td><td>30 分钟</td><td>低</td><td>YAML 格式直观，安全清单就是数组</td></tr>
+  <tr><td>对照表复习</td><td>30 分钟</td><td>低</td><td>串联三个项目的知识</td></tr>
+</table>
+</div>
+
+<div class="warning-box">
+  本指南基于源码静态分析。OpenClaw 是一个活跃开发的项目，架构细节可能随版本更新。
+  阅读源码时以实际代码为准，本指南帮助你建立宏观理解。
+</div>
+
+<div class="accordion">
+  <div class="acc-header" onclick="toggleAcc(this)"><span class="acc-arrow">▶</span>OpenClaw 学完后的下一步</div>
+  <div class="acc-body"><div class="acc-content">
+  <p>学完三个项目后，你对 AI Agent 架构已经有了完整的理解：</p>
+  <ul>
+    <li><strong>核心不变量</strong> — Agent Loop（LLM 调用 → 工具执行 → 循环）在所有项目中结构一致</li>
+    <li><strong>规模差异</strong> — 教学版 ~800 LOC vs 生产版 ~万级 LOC，差异在于错误处理、多租户、安全层</li>
+    <li><strong>设计取舍</strong> — 运行时权限 vs 编译时策略、内存记忆 vs 向量数据库、单频道 vs 多频道</li>
+  </ul>
+  <p>下一步可以考虑：</p>
+  <ol>
+    <li>回到 Learn Claude Code，自己动手实现一个最小 Agent（TODO.md 阶段四）</li>
+    <li>用 Harness Engineering 四层框架（Inform / Constrain / Verify / Correct）重新审视三个项目</li>
+    <li>关注 OpenClaw 的 GitHub 更新，看架构如何演进</li>
+  </ol>
+  </div></div>
+</div>
+
+<label class="learn-check"><input type="checkbox" data-topic="learning" onchange="saveProgress(this)"><span class="check-box"></span><span class="check-label">我已学完学习建议</span></label>
+</section>
+
+<div style="text-align:center;padding:48px 0 24px;color:var(--text3);font-size:.85rem">
+  基于 OpenClaw 源码分析 |
+  进度自动保存于浏览器 localStorage
+</div>
+
+</main>
+
+<script>
+function navTo(id){
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+  if(window.innerWidth<=900) toggleSidebar();
+  updateActiveNav(id);
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+function updateActiveNav(id){
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.classList.toggle('active',n.dataset.target===id);
+  });
+}
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      updateActiveNav(e.target.id);
+      e.target.classList.add('visible');
+    }
+  });
+},{threshold:0.15,rootMargin:'-60px 0px -40% 0px'});
+document.querySelectorAll('.section').forEach(s=>observer.observe(s));
+
+function toggleAcc(header){
+  header.classList.toggle('open');
+  const body=header.nextElementSibling;
+  body.classList.toggle('open');
+}
+function copyCode(btn){
+  const code=btn.closest('.code-wrap').querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(()=>{
+    btn.textContent='已复制!';
+    btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied');},2000);
+  });
+}
+
+const STORAGE_KEY='openclaw-learning-progress';
+function loadProgress(){
+  try{
+    const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    document.querySelectorAll('.learn-check input').forEach(cb=>{
+      const topic=cb.dataset.topic;
+      if(data[topic]){cb.checked=true;updateNavDone(topic,true);}
+    });
+    updateProgressBar();
+  }catch(e){}
+}
+function saveProgress(cb){
+  try{
+    const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    data[cb.dataset.topic]=cb.checked;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    updateNavDone(cb.dataset.topic,cb.checked);
+    updateProgressBar();
+  }catch(e){}
+}
+function updateNavDone(topic,done){
+  const nav=document.querySelector(`.nav-item[data-target="${topic}"]`);
+  if(nav) nav.classList.toggle('done',done);
+}
+function updateProgressBar(){
+  const segs=document.querySelectorAll('.seg');
+  const checks=document.querySelectorAll('.learn-check input');
+  const checkedTopics=new Set();
+  checks.forEach(c=>{if(c.checked)checkedTopics.add(c.dataset.topic)});
+  let done=0;
+  segs.forEach(s=>{
+    const id=s.dataset.seg;
+    const isDone=checkedTopics.has(id);
+    s.classList.toggle('done',isDone);
+    if(isDone)done++;
+  });
+  document.getElementById('progress-text').textContent=done+'/'+segs.length;
+}
+loadProgress();
+setTimeout(()=>{document.querySelectorAll('.section').forEach(s=>s.classList.add('visible'));},800);
+</script>
+</body>
+</html>
